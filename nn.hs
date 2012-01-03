@@ -22,20 +22,22 @@ data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
         | Cat { iD :: String }
         | Tags { popularity :: Bool }
         | Check { names :: Bool, references :: Bool }
+        | Save { rename :: Maybe String, tag :: String, file :: String }
         | Junk
         deriving (Show, Data, Typeable)
 
 
 main = do
-  mode <- cmdArgs (modes [listMode &= auto, catMode, tagsMode, checkMode])
+  mode <- cmdArgs (modes [listMode &= auto, catMode, tagsMode, checkMode, saveMode])
   dir <- getEnv "NN_HOME"
-  setCurrentDirectory dir
+  --setCurrentDirectory dir
   case mode of
-    List _ _ _ -> list mode
-    Cat _      -> print mode
-    Tags _     -> tags mode
-    Check _ _  -> check mode
-    otherwise  -> list mode
+    List _ _ _ -> setCurrentDirectory dir >> list mode
+    Cat _      -> setCurrentDirectory dir >> cat mode
+    Tags _     -> setCurrentDirectory dir >> tags mode
+    Check _ _  -> setCurrentDirectory dir >> check mode
+    Save _ _ _ -> save dir mode
+    otherwise  -> setCurrentDirectory dir >> list mode
 
 
 
@@ -48,6 +50,10 @@ tagsMode = Tags { popularity = def &= help "Show and sort by the popularity of t
 checkMode = Check { names = def &= help "List badly named files"
                   , references = def &= help "List files containing bad file references"
                   }
+saveMode = Save { rename = def &= help "Save with descriptive name NAME" &=typ "NAME"
+                , tag = def &= typ "TAG" &= argPos 0
+                , file = def &= typ "FILE" &= argPos 1
+                }
 
 -- List the names of files matching the terms.
 list (List _ Nothing terms) = mapM_ putStrLn =<< getFiles terms
@@ -65,6 +71,14 @@ tags (Tags pop) = do
   ts <- countTags <$> getFiles []
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
          else mapM_ putStrLn $ map snd ts
+
+cat (Cat id) = do
+  files <- getFiles ["name:"++id]
+  print files
+  contents <- mapM readFile files  -- TODO doesn't work with unicote filenames.
+  putStr $ unlines $ zipWith (\f c -> header f ++ c) files contents
+  where
+    header s = s ++ "\n" ++ take (length s) (repeat '=') ++ "\n"
 
 -- List files with bad names.
 check (Check True False) = do
@@ -93,6 +107,15 @@ check (Check True True) = do
   check (Check True False)
   check (Check False True)
 
+
+save dir (Save Nothing tag file) = save' dir tag file (takeFileName file)
+save dir (Save (Just name) tag file) = save' dir tag file (name <.> takeExtension file)
+
+save' dir tag file name = do
+  id <- makeID
+  let newfile = id ++ "-" ++ tag ++ "-" ++ name
+  copyFile file (dir </> newfile)
+  putStrLn newfile
 
 
 getFiles [] = do
