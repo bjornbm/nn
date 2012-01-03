@@ -33,10 +33,10 @@ filePattern  = obsP ++ idP ++ tagP ++ restP
 filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
 filePattern0 = "^" ++ idP ++ tagP  -- Don't match obsolete files.
 
--- | Extract tags from file names.
-tags :: [FilePath] -> [(String, Int)]
-tags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-'))
-  where f xs = zip (map head xs) (map length xs)
+-- | Extract tags from file names and count the number of uses of each tag.
+countTags :: [FilePath] -> [(Int, String)]
+countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-'))
+  where f xs = zip (map length xs) (map head xs)
 
 -- | Create an ID for a new file. Specifically a time stamp
 -- based on the current local time with minute precision.

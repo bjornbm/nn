@@ -9,6 +9,7 @@ import NNUtil
 import System.Console.CmdArgs
 import System.Directory
 import Prelude hiding (all)
+import Text.Printf
 
 import Text.Regex.TDFA
 
@@ -19,18 +20,21 @@ import Text.Regex.TDFA
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
         | Cat { iD :: String }
+        | Tags { popularity :: Bool }
         | Junk
         deriving (Show, Data, Typeable)
 
 
 main = do
-  mode <- cmdArgs (modes [listMode &= auto, catMode])
+  mode <- cmdArgs (modes [listMode &= auto, catMode, tagsMode])
   dir <- getEnv "NN_HOME"
   setCurrentDirectory dir
   case mode of
     List _ _ _ -> list mode
     Cat _      -> print mode
+    Tags _     -> tags mode
     otherwise  -> list mode
+
 
 
 listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ "COMMAND"
@@ -38,12 +42,7 @@ listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
 catMode = Cat { iD = def &= args &= typ "FILE ID" }
-
-getFiles [] = do
-  processFiles <$> mdlist
-
-getFiles terms = do
-  processFiles <$> mdfind terms
+tagsMode = Tags { popularity = def &= help "Show and sort by the popularity of tags" }
 
 -- List the names of files matching the terms.
 list (List _ Nothing terms) = putStr . unlines =<< getFiles terms
@@ -57,5 +56,16 @@ list (List _ (Just exec) terms) = do
     ExitSuccess -> return ()
     otherwise   -> print code
 
+tags (Tags pop) = do
+  ts <- countTags <$> getFiles []
+  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
+         else putStr $ unlines $ map snd ts
 
-processFiles = id -- sort . filter (=~ filePattern0) . fmap takeFileName
+
+getFiles [] = do
+  processFiles <$> mdlist
+
+getFiles terms = do
+  processFiles <$> mdfind terms
+
+processFiles = sort . filter (=~ filePattern0) . fmap takeFileName
