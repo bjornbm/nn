@@ -10,17 +10,19 @@ import System.FilePath
 import System.Process
 
 
--- | Find files. We used the ASCII NULL terminated paths since file
+-- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
-mdfind dir args =  endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
+mdfind args = do
+  dir <- getCurrentDirectory
+  endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir = [ "-onlyin", dir
                   , "-0"
-                  -- , "name:_"  -- FIXME this is an embarrasing kludge!
                   ]
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = filter ((/='.') . head) <$> getDirectoryContents dir
+mdlist = getDirectoryContents =<< getCurrentDirectory
+-- mdlist = filter ((/='.') . head) <$> getDirectoryContents "."
 
 -- Regex patterns.
 obsP  = "^\\+?"

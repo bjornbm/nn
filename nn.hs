@@ -28,9 +28,9 @@ main = do
   dir <- getEnv "NN_HOME"
   setCurrentDirectory dir
   case mode of
-    List _ _ _ -> list dir mode
+    List _ _ _ -> list mode
     Cat _      -> print mode
-    otherwise  -> list dir mode
+    otherwise  -> list mode
 
 
 listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ "COMMAND"
@@ -39,18 +39,18 @@ listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ
                 }
 catMode = Cat { iD = def &= args &= typ "FILE ID" }
 
-getFiles dir [] = do
-  processFiles <$> mdlist dir
+getFiles [] = do
+  processFiles <$> mdlist
 
-getFiles dir terms = do
-  processFiles <$> mdfind dir terms
+getFiles terms = do
+  processFiles <$> mdfind terms
 
 -- List the names of files matching the terms.
-list dir (List _ Nothing terms) = putStr . unlines =<< getFiles dir terms
+list (List _ Nothing terms) = putStr . unlines =<< getFiles terms
 
 -- Apply command specified with --exec to files matching the terms.
-list dir (List _ (Just exec) terms) = do
-  files <- getFiles dir terms
+list (List _ (Just exec) terms) = do
+  files <- getFiles terms
   let cmd:args = words exec
   code <- rawSystem cmd (args ++ files)
   case code of
@@ -58,4 +58,4 @@ list dir (List _ (Just exec) terms) = do
     otherwise   -> print code
 
 
-processFiles = sort . filter (=~ filePattern0) . fmap takeFileName
+processFiles = id -- sort . filter (=~ filePattern0) . fmap takeFileName
