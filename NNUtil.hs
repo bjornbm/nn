@@ -14,15 +14,15 @@ import System.Process
 -- names can contain @\n@ and would get split by @lines@.
 mdfind args = do
   dir <- getCurrentDirectory
-  endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
+  map takeFileName . endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir = [ "-onlyin", dir
                   , "-0"
                   ]
 
 -- | List all files in the directory except for hidden files.
-mdlist = getDirectoryContents =<< getCurrentDirectory
--- mdlist = filter ((/='.') . head) <$> getDirectoryContents "."
+mdlist = map takeFileName <$> (getDirectoryContents =<< getCurrentDirectory)
+
 
 -- Regex patterns.
 obsP  = "^\\+?"

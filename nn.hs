@@ -73,7 +73,7 @@ check (Check True False) = do
                  $ filter (/= ".")
                  $ filter (/= "..")
                  $ filter (not . (=~ filePattern'))
-                 $ fmap takeFileName files
+                 $ files
 
 -- List files with bad references.
 check (Check False True) = do
@@ -101,4 +101,4 @@ getFiles [] = do
 getFiles terms = do
   processFiles <$> mdfind terms
 
-processFiles = sort . filter (=~ filePattern0) . fmap takeFileName
+processFiles = sort . filter (=~ filePattern0)
