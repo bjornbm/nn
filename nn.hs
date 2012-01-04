@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
 
 import Control.Applicative
 import Data.List hiding (all)
@@ -19,24 +20,25 @@ import Text.Regex.TDFA
 -}
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
-        | Cat { iD :: String }
+        | Cat { id :: String }
         | Tags { popularity :: Bool }
         | Check { names :: Bool, references :: Bool }
         | Save { rename :: Maybe String, tag :: String, file :: String }
+        | New { tag :: String, name :: [String] }
         | Junk
         deriving (Show, Data, Typeable)
 
 
 main = do
-  mode <- cmdArgs (modes [listMode &= auto, catMode, tagsMode, checkMode, saveMode])
+  mode <- cmdArgs (modes [listMode &= auto, catMode, tagsMode, checkMode, saveMode, newMode])
   dir <- getEnv "NN_HOME"
-  --setCurrentDirectory dir
   case mode of
     List _ _ _ -> setCurrentDirectory dir >> list mode
     Cat _      -> setCurrentDirectory dir >> cat mode
     Tags _     -> setCurrentDirectory dir >> tags mode
     Check _ _  -> setCurrentDirectory dir >> check mode
     Save _ _ _ -> save dir mode
+    New _ _    -> new dir mode
     otherwise  -> setCurrentDirectory dir >> list mode
 
 
@@ -45,15 +47,18 @@ listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ
                 , all = def &= help "Include obsoleted files in search"
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
-catMode = Cat { iD = def &= args &= typ "FILE ID" }
+catMode = Cat { id = def &= args &= typ "FILE ID" }
 tagsMode = Tags { popularity = def &= help "Show and sort by the popularity of tags" }
 checkMode = Check { names = def &= help "List badly named files"
                   , references = def &= help "List files containing bad file references"
                   }
-saveMode = Save { rename = def &= help "Save with descriptive name NAME" &=typ "NAME"
+saveMode = Save { rename = def &= help "Save with descriptive name NAME" &= typ "NAME"
                 , tag = def &= typ "TAG" &= argPos 0
                 , file = def &= typ "FILE" &= argPos 1
                 }
+newMode = New { tag = def &= typ "TAG" &= argPos 0
+              , name = def &= typ "NAME" &= args
+              }
 
 -- List the names of files matching the terms.
 list (List _ Nothing terms) = mapM_ putStrLn =<< getFiles terms
@@ -117,6 +122,14 @@ save' dir tag file name = do
   copyFile file (dir </> newfile)
   putStrLn newfile
 
+new dir (New tag name) = do
+  id <- makeID
+  let newfile = id ++ "-" ++ tag ++ "-" ++ unwords name <.> ".txt"
+  cmd <- catch (getEnv "EDITOR") (const (return "vi"))
+  code <- rawSystem cmd [dir </> newfile]
+  case code of
+    ExitSuccess -> putStrLn newfile
+    otherwise   -> print code
 
 getFiles [] = do
   processFiles <$> mdlist
