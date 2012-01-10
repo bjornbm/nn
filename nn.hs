@@ -80,7 +80,6 @@ tags (Tags pop) = do
 
 cat (Cat id) = do
   files <- getFiles ["name:"++id]
-  print files
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
   putStr $ unlines $ zipWith (\f c -> header f ++ c) files contents
   where

@@ -31,7 +31,7 @@ tagP  = "-[a-zA-Z0-9_.]+-"
 restP = ".+[^~]$"  -- Ignore unix (vim) backup files.
 filePattern  = obsP ++ idP ++ tagP ++ restP
 filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
-filePattern0 = "^" ++ idP ++ tagP  -- Don't match obsolete files.
+filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.
 
 -- | Extract tags from file names and count the number of uses of each tag.
 countTags :: [FilePath] -> [(Int, String)]
