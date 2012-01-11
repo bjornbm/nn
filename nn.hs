@@ -22,6 +22,7 @@ import Text.Regex.TDFA
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
         | Cat { id :: String }
+        | Edit { id :: String }
         | Tags { popularity :: Bool }
         | Check { names :: Bool, references :: Bool }
         | Save { rename :: Maybe String, tag :: String, file :: String }
@@ -31,15 +32,16 @@ data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
 
 
 main = do
-  mode <- cmdArgs (modes [listMode &= auto, catMode, tagsMode, checkMode, saveMode, newMode])
+  mode <- cmdArgs (modes [listMode &= auto, catMode, editMode, tagsMode, checkMode, saveMode, newMode])
   dir <- getEnv "NN_HOME"
   case mode of
-    List _ _ _ -> setCurrentDirectory dir >> list mode
+    List _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
     Cat _      -> setCurrentDirectory dir >> cat mode
     Tags _     -> setCurrentDirectory dir >> tags mode
     Check _ _  -> setCurrentDirectory dir >> check mode
     Save _ _ _ -> save dir mode
     New _ _    -> new dir mode
+    Edit _     -> edit dir mode
     otherwise  -> setCurrentDirectory dir >> list mode
 
 
@@ -49,6 +51,7 @@ listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
 catMode = Cat { id = def &= args &= typ "FILE ID" }
+editMode = Edit { id = def &= args &= typ "FILE ID" }
 tagsMode = Tags { popularity = def &= help "Show and sort by the popularity of tags" }
 checkMode = Check { names = def &= help "List badly named files"
                   , references = def &= help "List files containing bad file references"
@@ -79,11 +82,22 @@ tags (Tags pop) = do
          else mapM_ putStrLn $ map snd ts
 
 cat (Cat id) = do
-  files <- getFiles ["name:"++id]
+  files <- getFiles ["name:"++id]  -- TODO not solid.
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
   putStr $ unlines $ zipWith (\f c -> header f ++ c) files contents
   where
     header s = s ++ "\n" ++ take (length s) (repeat '=') ++ "\n"
+
+edit dir (Edit id) = do
+  files <- processFiles <$> mdfind' dir ["name:"++id]  -- TODO not solid.
+  exec <- catch (getEnv "EDITOR") defaultEditor
+  let cmd:args = words exec
+  code <- rawSystem cmd (args ++ map (dir </>) files)
+  case code of
+    ExitSuccess -> return ()
+    otherwise   -> print code
+
+defaultEditor = const (return "vi")
 
 -- List files with bad names.
 check (Check True False) = do
@@ -125,7 +139,7 @@ save' dir tag file name = do
 new dir (New tag name) = do
   id <- makeID
   let newfile = id ++ "-" ++ tag ++ "-" ++ unwords name <.> ".txt"
-  cmd <- catch (getEnv "EDITOR") (const (return "vi"))
+  cmd <- catch (getEnv "EDITOR") defaultEditor
   code <- rawSystem cmd [dir </> newfile]
   case code of
     ExitSuccess -> putStrLn newfile

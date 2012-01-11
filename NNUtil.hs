@@ -19,6 +19,12 @@ mdfind args = do
     stdArgs dir = [ "-onlyin", dir
                   , "-0"
                   ]
+mdfind' dir args = do
+  map takeFileName . endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
+  where
+    stdArgs dir = [ "-onlyin", dir
+                  , "-0"
+                  ]
 
 -- | List all files in the directory except for hidden files.
 mdlist = map takeFileName <$> (getDirectoryContents =<< getCurrentDirectory)
