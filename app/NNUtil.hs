@@ -4,8 +4,8 @@ import Control.Applicative
 import Data.List
 import Data.List.Split
 import Data.Time
-import System
 import System.Directory
+import System.Exit
 import System.FilePath
 import System.Process
 

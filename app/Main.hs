@@ -2,15 +2,17 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 
 import Control.Applicative
+import System.IO.Error(catchIOError)
 import Data.List hiding (all)
-import System
-import System.FilePath
-import System.Process
+import System.Environment (getEnv)
+import System.Exit (ExitCode (ExitSuccess))
+import System.FilePath ((</>), (<.>), takeFileName, takeExtension)
+import System.Process (rawSystem)
 import NNUtil
 import System.Console.CmdArgs
-import System.Directory
+import System.Directory (setCurrentDirectory, copyFile)
 import Prelude hiding (all)
-import Text.Printf
+import Text.Printf (printf)
 
 import Text.Regex.TDFA
 
@@ -90,7 +92,7 @@ cat (Cat id) = do
 
 edit dir (Edit id) = do
   files <- processFiles <$> mdfind' dir ["name:"++id]  -- TODO not solid.
-  exec <- catch (getEnv "EDITOR") defaultEditor
+  exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
   code <- rawSystem cmd (args ++ map (dir </>) files)
   case code of
@@ -139,7 +141,7 @@ save' dir tag file name = do
 new dir (New tag name) = do
   id <- makeID
   let newfile = id ++ "-" ++ tag ++ "-" ++ unwords name <.> ".txt"
-  cmd <- catch (getEnv "EDITOR") defaultEditor
+  cmd <- catchIOError (getEnv "EDITOR") defaultEditor
   code <- rawSystem cmd [dir </> newfile]
   case code of
     ExitSuccess -> putStrLn newfile
