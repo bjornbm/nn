@@ -34,7 +34,7 @@ data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
 
 
 main = do
-  mode <- cmdArgs (modes [listMode &= auto, catMode, editMode, tagsMode, checkMode, saveMode, newMode])
+  mode <- cmdArgs (modes [listMode &= auto, catMode, editMode, tagsMode, checkMode, newMode, saveMode])
   dir <- getEnv "NN_HOME"
   case mode of
     List _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
@@ -53,13 +53,15 @@ listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
 catMode = Cat { id = def &= args &= typ "FILE ID" }
-editMode = Edit { id = def &= args &= typ "FILE ID" }
+editMode = Edit { id = def &= args &= typ "FILE ID" }  -- TODO: Why doesn't this behave identically to the previous line?
+                                                       -- See the help message generate by cmdargs. Looks like a bug in
+                                                       -- cmdargs to me, where only the first occurence turn out OK.
 tagsMode = Tags { popularity = def &= help "Show and sort by the popularity of tags" }
 checkMode = Check { names = def &= help "List badly named files"
                   , references = def &= help "List files containing bad file references"
                   }
 saveMode = Save { rename = def &= help "Save with descriptive name NAME" &= typ "NAME"
-                , tag = def &= typ "TAG" &= argPos 0
+                , tag = def &= typ "TAG" &= argPos 0  -- TODO: See editMode TODO.
                 , file = def &= typ "FILE" &= argPos 1
                 }
 newMode = New { empty = def &= help "Create empty file"
