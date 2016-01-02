@@ -28,7 +28,7 @@ data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
         | Tags { popularity :: Bool }
         | Check { names :: Bool, references :: Bool }
         | Save { rename :: Maybe String, tag :: String, file :: String }
-        | New { tag :: String, name :: [String] }
+        | New { empty :: Bool, tag :: String, name :: [String] }
         | Junk
         deriving (Show, Data, Typeable)
 
@@ -42,7 +42,7 @@ main = do
     Tags _     -> setCurrentDirectory dir >> tags mode
     Check _ _  -> setCurrentDirectory dir >> check mode
     Save _ _ _ -> save dir mode
-    New _ _    -> new dir mode
+    New _ _ _  -> new dir mode
     Edit _     -> edit dir mode
     otherwise  -> setCurrentDirectory dir >> list mode
 
@@ -62,7 +62,8 @@ saveMode = Save { rename = def &= help "Save with descriptive name NAME" &= typ 
                 , tag = def &= typ "TAG" &= argPos 0
                 , file = def &= typ "FILE" &= argPos 1
                 }
-newMode = New { tag = def &= typ "TAG" &= argPos 0
+newMode = New { empty = def &= help "Create empty file"
+              , tag = def &= typ "TAG" &= argPos 0
               , name = def &= typ "NAME" &= args
               }
 
@@ -138,10 +139,11 @@ save' dir tag file name = do
   copyFile file (dir </> newfile)
   putStrLn newfile
 
-new dir (New tag name) = do
+new dir (New empty tag name) = do
   id <- makeID
   let newfile = id ++ "-" ++ tag ++ "-" ++ unwords name <.> ".txt"
-  cmd <- catchIOError (getEnv "EDITOR") defaultEditor
+  cmd <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
+                  else catchIOError (getEnv "EDITOR") defaultEditor
   code <- rawSystem cmd [dir </> newfile]
   case code of
     ExitSuccess -> putStrLn newfile
