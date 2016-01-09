@@ -23,7 +23,7 @@ import Text.Regex.TDFA
 -}
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
-        | Cat { id :: String }
+        | Cat { noheaders :: Bool, id :: String }
         | Edit { id :: String }
         | Tags { popularity :: Bool }
         | Check { names :: Bool, references :: Bool }
@@ -38,7 +38,7 @@ main = do
   dir <- getEnv "NN_HOME"
   case mode of
     List _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
-    Cat _      -> setCurrentDirectory dir >> cat mode
+    Cat _ _    -> setCurrentDirectory dir >> cat mode
     Tags _     -> setCurrentDirectory dir >> tags mode
     Check _ _  -> setCurrentDirectory dir >> check mode
     Save _ _ _ -> save dir mode
@@ -52,7 +52,8 @@ listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ
                 , all = def &= help "Include obsoleted files in search"
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
-catMode = Cat { id = def &= args &= typ "FILE ID" }
+catMode = Cat { noheaders = def &= help "Do not include headers in output"
+              , id = def &= args &= typ "FILE ID" }
 editMode = Edit { id = def &= args &= typ "FILE ID" }  -- TODO: Why doesn't this behave identically to the previous line?
                                                        -- See the help message generate by cmdargs. Looks like a bug in
                                                        -- cmdargs to me, where only the first occurence turn out OK.
@@ -86,10 +87,12 @@ tags (Tags pop) = do
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
          else mapM_ putStrLn $ map snd ts
 
-cat (Cat id) = do
+cat (Cat noheaders id) = do
   files <- getFiles ["name:"++id]  -- TODO not solid.
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
-  putStr $ unlines $ zipWith (\f c -> header f ++ c) files contents
+  if noheaders
+     then putStr $ unlines $ contents
+     else putStr $ unlines $ zipWith (\f c -> header f ++ c) files contents
   where
     header s = s ++ "\n" ++ take (length s) (repeat '=') ++ "\n"
 
