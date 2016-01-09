@@ -3,7 +3,7 @@
 
 import Control.Applicative
 import System.IO.Error(catchIOError)
-import Data.List hiding (all)
+import Data.List (intercalate, sort)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>), (<.>), takeFileName, takeExtension)
@@ -91,8 +91,8 @@ cat (Cat noheaders id) = do
   files <- getFiles ["name:"++id]  -- TODO not solid.
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
   if noheaders
-     then putStr $ unlines $ contents
-     else putStr $ unlines $ zipWith (\f c -> header f ++ c) files contents
+     then putStr $ intercalate "\n" $ contents
+     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header f ++ c) files contents
   where
     header s = s ++ "\n" ++ take (length s) (repeat '=') ++ "\n"
 
