@@ -126,6 +126,10 @@ check (Check False False) = do
   putStrLn "-----------------"
   check (Check True False)
   putStrLn ""
+  putStrLn "Files with duplicate identifiers"
+  putStrLn "--------------------------------"
+  putStrLn "NOT IMPLEMENTED" -- TODO
+  putStrLn ""
   putStrLn "Files with bad references"
   putStrLn "-------------------------"
   check (Check False True)
