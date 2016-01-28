@@ -113,6 +113,7 @@ check (Check True False) = do
   mapM_ putStrLn $ sort
                  $ filter (/= ".")
                  $ filter (/= "..")
+                 $ filter (not . (=~ hiddenP))
                  $ filter (not . (=~ filePattern'))
                  $ files
 

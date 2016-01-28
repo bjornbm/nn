@@ -33,8 +33,9 @@ mdlist = map takeFileName <$> (getDirectoryContents =<< getCurrentDirectory)
 -- Regex patterns.
 obsP  = "^\\+?"
 idP   = "\\<[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{4}\\>"
-tagP  = "-[a-zA-Z0-9_.]+-"
+tagP  = "-[a-zA-Z0-9_.åäöÅÄÖ]+-"
 restP = ".+[^~]$"  -- Ignore unix (vim) backup files.
+hiddenP = "^\\."   -- Ignore hidden files.
 filePattern  = obsP ++ idP ++ tagP ++ restP
 filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
 filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.
