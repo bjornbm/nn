@@ -17,6 +17,8 @@ import Text.Printf (printf)
 import Text.Regex.TDFA
 
 
+defaultEditor = const (return "vim")
+
 {- TODO:
 -  global option to specify NN_DIR.
 -  Shouldn't change cwd when usind list --exec!
@@ -105,7 +107,6 @@ edit dir (Edit id) = do
     ExitSuccess -> return ()
     otherwise   -> print code
 
-defaultEditor = const (return "vi")
 
 -- List files with bad names.
 check (Check True False) = do
