@@ -22,6 +22,7 @@ defaultEditor = const (return "vim")
 {- TODO:
 -  global option to specify NN_DIR.
 -  Shouldn't change cwd when usind list --exec!
+-  option to print full file name including path (in quotes or with with escaped spaces?)
 -}
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
