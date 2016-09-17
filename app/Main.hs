@@ -23,6 +23,12 @@ defaultEditor = const (return "vim")
 -  global option to specify NN_DIR.
 -  Shouldn't change cwd when usind list --exec!
 -  option to print full file name including path (in quotes or with with escaped spaces?)
+-  Integrate with git (if NN_DIR is a repo): add new files and commit changes after edit. Option to push automatically?
+-  nn edit based on search term rather than ID?
+-  nn cat works strange (not like search); use ID or search term??
+-  nn rename command, takes -i
+-  nn redate command, takes -i and optional new date (otherwise now)
+-  nn pandoc command?
 -}
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
