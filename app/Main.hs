@@ -20,15 +20,27 @@ import Text.Regex.TDFA
 defaultEditor = const (return "vim")
 
 {- TODO:
--  global option to specify NN_DIR.
+-  Global option to specify NN_DIR.
 -  Shouldn't change cwd when usind list --exec!
--  option to print full file name including path (in quotes or with with escaped spaces?)
+-  Option to print full file name including path (in quotes or with with escaped spaces?)
 -  Integrate with git (if NN_DIR is a repo): add new files and commit changes after edit. Option to push automatically?
 -  nn edit based on search term rather than ID?
 -  nn cat works strange (not like search); use ID or search term??
 -  nn rename command, takes -i
 -  nn redate command, takes -i and optional new date (otherwise now)
 -  nn pandoc command?
+-  nn pretty command? (| pandoc --smart --to=plain)
+-  nn obsolete command, takes -i and adds + in front of ID
+-  nn path command, returns full path of matching files
+-  Consistently use search term and or -i for edit, cat, etc.
+-  Allow multiple tags separated by underscore {ID}-tag1_tag2-{TITLE}
+-  nn -t tag option for searching by tag
+-  nn tag command to add tag to notes
+-  nn rmtag command to remove tag from notes
+-  nn touch command to update ID to today's time (use `git mv` if repo!)
+-  Change ID format from 2014_05_20_1738 to 20140520T1738?
+-  nn stats command to list total number of current and obsolete files, etc?
+-  nn check files without tags and without titles
 -}
 
 data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
