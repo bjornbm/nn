@@ -38,7 +38,8 @@ hiddenP = "^\\."   -- Ignore hidden files.
 filePattern  = obsP ++ idP ++ tagP ++ restP
 filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
 filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.
-taggedP tag = obsP ++ idP ++ "-" ++ tag ++ "-"
+filePatternT tag = "^" ++ idP ++ taggedP tag ++ restP
+taggedP tag = "-" ++ tag ++ "-"
 
 -- | Extract tags from file names and count the number of uses of each tag.
 countTags :: [FilePath] -> [(Int, String)]

@@ -71,7 +71,7 @@ main = do
 
 listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ "COMMAND"
                 , tagged = def &= typ "TAG" &= help "Only files tagged with TAG"
-                , all = def &= help "Include obsoleted files in search"
+                , all = def &= help "Include obsoleted files in search"  -- TOOD: actually implement this!
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
 catMode = Cat { noheaders = def &= help "Do not include headers in output"
@@ -180,12 +180,10 @@ new dir (New empty tag name) = do
     ExitSuccess -> putStrLn newfile
     otherwise   -> print code
 
-getFiles tag [] = do
-  processFiles tag <$> mdlist
-
-getFiles tag terms = do
-  processFiles tag <$> mdfind terms
+getFiles Nothing    []    = processFiles Nothing <$> mdlist
+getFiles Nothing    terms = processFiles Nothing <$> mdfind terms
+getFiles (Just tag) terms = processFiles (Just tag) <$> mdfind (tag:terms)
 
 processFiles :: Maybe String -> [FilePath] -> [String]
 processFiles Nothing = sort . filter (=~ filePattern0)
-processFiles (Just tag) = sort . filter (=~ taggedP tag) . filter (=~ filePattern0)
+processFiles (Just tag) = sort . filter (=~ filePatternT tag)
