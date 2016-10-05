@@ -43,7 +43,7 @@ defaultEditor = const (return "vim")
 -  nn check files without tags and without titles
 -}
 
-data NN = List { all :: Bool, exec :: Maybe String, terms :: [String] }
+data NN = List { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
         | Cat { noheaders :: Bool, id :: String }
         | Edit { id :: String }
         | Tags { popularity :: Bool }
@@ -58,18 +58,19 @@ main = do
   mode <- cmdArgs (modes [listMode &= auto, catMode, editMode, tagsMode, checkMode, newMode, saveMode])
   dir <- getEnv "NN_HOME"
   case mode of
-    List _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
-    Cat _ _    -> setCurrentDirectory dir >> cat mode
-    Tags _     -> setCurrentDirectory dir >> tags mode
-    Check _ _  -> setCurrentDirectory dir >> check mode
-    Save _ _ _ -> save dir mode
-    New _ _ _  -> new dir mode
-    Edit _     -> edit dir mode
-    otherwise  -> setCurrentDirectory dir >> list mode
+    List _ _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
+    Cat _ _      -> setCurrentDirectory dir >> cat mode
+    Tags _       -> setCurrentDirectory dir >> tags mode
+    Check _ _    -> setCurrentDirectory dir >> check mode
+    Save _ _ _   -> save dir mode
+    New _ _ _    -> new dir mode
+    Edit _       -> edit dir mode
+    otherwise    -> setCurrentDirectory dir >> list mode
 
 
 
 listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ "COMMAND"
+                , tagged = def &= typ "TAG" &= help "Only files tagged with TAG"
                 , all = def &= help "Include obsoleted files in search"
                 , terms = def &= args &= typ "SEARCH TERMS"
                 }
@@ -92,11 +93,11 @@ newMode = New { empty = def &= help "Create empty file"
               }
 
 -- List the names of files matching the terms.
-list (List _ Nothing terms) = mapM_ putStrLn =<< getFiles terms
+list (List _ Nothing tag terms) = mapM_ putStrLn =<< getFiles tag terms
 
 -- Apply command specified with --exec to files matching the terms.
-list (List _ (Just exec) terms) = do
-  files <- getFiles terms
+list (List _ (Just exec) tag terms) = do
+  files <- getFiles tag terms
   let cmd:args = words exec
   code <- rawSystem cmd (args ++ files)
   case code of
@@ -104,12 +105,12 @@ list (List _ (Just exec) terms) = do
     otherwise   -> print code
 
 tags (Tags pop) = do
-  ts <- countTags <$> getFiles []
+  ts <- countTags <$> getFiles Nothing []
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
          else mapM_ putStrLn $ map snd ts
 
 cat (Cat noheaders id) = do
-  files <- getFiles ["name:"++id]  -- TODO not solid.
+  files <- getFiles Nothing ["name:"++id]  -- TODO not solid. TODO use tag
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
   if noheaders
      then putStr $ intercalate "\n" $ contents
@@ -118,7 +119,7 @@ cat (Cat noheaders id) = do
     header s = s ++ "\n" ++ take (length s) (repeat '=') ++ "\n"
 
 edit dir (Edit id) = do
-  files <- processFiles <$> mdfind' dir ["name:"++id]  -- TODO not solid.
+  files <- processFiles Nothing <$> mdfind' dir ["name:"++id]  -- TODO not solid.
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
   code <- rawSystem cmd (args ++ map (dir </>) files)
@@ -179,10 +180,12 @@ new dir (New empty tag name) = do
     ExitSuccess -> putStrLn newfile
     otherwise   -> print code
 
-getFiles [] = do
-  processFiles <$> mdlist
+getFiles tag [] = do
+  processFiles tag <$> mdlist
 
-getFiles terms = do
-  processFiles <$> mdfind terms
+getFiles tag terms = do
+  processFiles tag <$> mdfind terms
 
-processFiles = sort . filter (=~ filePattern0)
+processFiles :: Maybe String -> [FilePath] -> [String]
+processFiles Nothing = sort . filter (=~ filePattern0)
+processFiles (Just tag) = sort . filter (=~ taggedP tag) . filter (=~ filePattern0)
