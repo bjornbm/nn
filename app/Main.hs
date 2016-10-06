@@ -46,17 +46,17 @@ defaultEditor = const (return "vim")
 
 
 main = do
-  mode <- parseCommand
+  command <- parseCommand
   dir <- getEnv "NN_HOME"
-  case mode of
-    List _ _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
-    Cat _ _      -> setCurrentDirectory dir >> cat mode
-    Tags _       -> setCurrentDirectory dir >> tags mode
-    Check _ _    -> setCurrentDirectory dir >> check mode
-    Save _ _ _   -> save dir mode
-    New _ _ _    -> new dir mode
-    Edit _       -> edit dir mode
-    otherwise    -> setCurrentDirectory dir >> list mode
+  case command of
+    List _ _ _ _ -> setCurrentDirectory dir >> list  command  -- TODO don't cd!
+    Cat _ _      -> setCurrentDirectory dir >> cat   command
+    Tags _       -> setCurrentDirectory dir >> tags  command
+    Check _ _    -> setCurrentDirectory dir >> check command
+    Save _ _ _   -> save dir command
+    New _ _ _    -> new  dir command
+    Edit _       -> edit dir command
+    otherwise    -> setCurrentDirectory dir >> list command
 
 
 -- List the names of files matching the terms.
