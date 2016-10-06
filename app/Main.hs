@@ -9,12 +9,13 @@ import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>), (<.>), takeFileName, takeExtension)
 import System.Process (rawSystem)
 import NNUtil
-import System.Console.CmdArgs
 import System.Directory (setCurrentDirectory, copyFile)
 import Prelude hiding (all)
 import Text.Printf (printf)
 
 import Text.Regex.TDFA
+
+import Options
 
 
 defaultEditor = const (return "vim")
@@ -43,19 +44,9 @@ defaultEditor = const (return "vim")
 -  nn check files without tags and without titles
 -}
 
-data NN = List { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
-        | Cat { noheaders :: Bool, id :: String }
-        | Edit { id :: String }
-        | Tags { popularity :: Bool }
-        | Check { names :: Bool, references :: Bool }
-        | Save { rename :: Maybe String, tag :: String, file :: String }
-        | New { empty :: Bool, tag :: String, name :: [String] }
-        | Junk
-        deriving (Show, Data, Typeable)
-
 
 main = do
-  mode <- cmdArgs (modes [listMode &= auto, catMode, editMode, tagsMode, checkMode, newMode, saveMode])
+  mode <- parseCommand
   dir <- getEnv "NN_HOME"
   case mode of
     List _ _ _ _ -> setCurrentDirectory dir >> list mode  -- TODO don't cd!
@@ -68,31 +59,8 @@ main = do
     otherwise    -> setCurrentDirectory dir >> list mode
 
 
-
-listMode = List { exec = def &= help "Pass files as arguments to COMMAND" &= typ "COMMAND"
-                , tagged = def &= typ "TAG" &= help "Only files tagged with TAG"
-                , all = def &= help "Include obsoleted files in search"  -- TOOD: actually implement this!
-                , terms = def &= args &= typ "SEARCH TERMS"
-                }
-catMode = Cat { noheaders = def &= help "Do not include headers in output"
-              , id = def &= args &= typ "FILE ID" }
-editMode = Edit { id = def &= args &= typ "FILE ID" }  -- TODO: Why doesn't this behave identically to the previous line?
-                                                       -- See the help message generate by cmdargs. Looks like a bug in
-                                                       -- cmdargs to me, where only the first occurence turn out OK.
-tagsMode = Tags { popularity = def &= help "Show and sort by the popularity of tags" }
-checkMode = Check { names = def &= help "List badly named files"
-                  , references = def &= help "List files containing bad file references"
-                  }
-saveMode = Save { rename = def &= help "Save with descriptive name NAME" &= typ "NAME"
-                , tag = def &= typ "TAG" &= argPos 0  -- TODO: See editMode TODO.
-                , file = def &= typ "FILE" &= argPos 1
-                }
-newMode = New { empty = def &= help "Create empty file"
-              , tag = def &= typ "TAG" &= argPos 0
-              , name = def &= typ "NAME" &= args
-              }
-
 -- List the names of files matching the terms.
+list (None terms) = mapM_ putStrLn =<< getFiles Nothing terms
 list (List _ Nothing tag terms) = mapM_ putStrLn =<< getFiles tag terms
 
 -- Apply command specified with --exec to files matching the terms.

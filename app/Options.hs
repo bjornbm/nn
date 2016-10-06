@@ -29,7 +29,7 @@ data Command
   | Check { names :: Bool, references :: Bool }
   | Save  { rename :: Maybe String, tag :: String, file :: String }
   | New   { empty :: Bool, tag :: String, name :: [String] }
-  | Junk
+  | None  { terms :: [String] }
   deriving (Show) -- , Data, Typeable)
 
 
@@ -50,7 +50,7 @@ options = subparser
   <> commandhd "check" checkOptions "Sanity check notes"
   <> commandhd "save"   saveOptions "Import any file as a note"
   <> commandhd "new"     newOptions "Create a new note"
-  )
+  ) <|> (None <$> manyArguments "SEARCH TERMS")
 
 listOptions = List
   <$> switch      (lsh "all"  'a' "Include obsoleted notes in search")
@@ -94,5 +94,5 @@ description = (fullDesc
     <> progDesc descText
     <> footer "(c) 2016, Bjorn Buckwalter")
 
-main :: IO ()
-main = execParser (info (helper <*> options) description) >>= print
+parseCommand :: IO Command
+parseCommand = execParser (info (helper <*> options) description)

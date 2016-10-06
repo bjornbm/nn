@@ -23,6 +23,7 @@ executable nn
   hs-source-dirs:      app
   main-is:             Main.hs
   other-modules:       NNUtil
+                     , Options
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      --, nn
