@@ -33,6 +33,7 @@ executable nn
                      , cmdargs
                      , regex-tdfa
                      , split
+                     , optparse-applicative >= 0.13
   default-language:    Haskell2010
 
 test-suite nn-test
