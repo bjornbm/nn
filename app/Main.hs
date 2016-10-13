@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 
 import Control.Applicative
@@ -25,6 +24,7 @@ defaultEditor = const (return "vim")
 -  Shouldn't change cwd when usind list --exec!
 -  Option to print full file name including path (in quotes or with with escaped spaces?)
 -  Integrate with git (if NN_DIR is a repo): add new files and commit changes after edit. Option to push automatically?
+-  nn 2010 doesn't find anything. In fact, mdfind will not find anything with 2010 in it!!
 -  nn edit based on search term rather than ID?
 -  nn cat works strange (not like search); use ID or search term??
 -  nn rename command, takes -i
@@ -49,14 +49,14 @@ main = do
   command <- parseCommand
   dir <- getEnv "NN_HOME"
   case command of
-    List _ _ _ _ -> setCurrentDirectory dir >> list  command  -- TODO don't cd!
-    Cat _ _      -> setCurrentDirectory dir >> cat   command
-    Tags _       -> setCurrentDirectory dir >> tags  command
-    Check _ _    -> setCurrentDirectory dir >> check command
-    Save _ _ _   -> save dir command
-    New _ _ _    -> new  dir command
-    Edit _       -> edit dir command
-    otherwise    -> setCurrentDirectory dir >> list command
+    List  {} -> setCurrentDirectory dir >> list  command  -- TODO don't cd!
+    Cat   {} -> setCurrentDirectory dir >> cat   command
+    Tags  {} -> setCurrentDirectory dir >> tags  command
+    Check {} -> setCurrentDirectory dir >> check command
+    Save  {} -> save dir command
+    New   {} -> new  dir command
+    Edit  {} -> edit dir command
+    _        -> setCurrentDirectory dir >> list command
 
 
 -- List the names of files matching the terms.
@@ -70,21 +70,23 @@ list (List _ (Just exec) tag terms) = do
   code <- rawSystem cmd (args ++ files)
   case code of
     ExitSuccess -> return ()
-    otherwise   -> print code
+    _           -> print code
 
 tags (Tags pop) = do
   ts <- countTags <$> getFiles Nothing []
-  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
-         else mapM_ putStrLn $ map snd ts
+  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverseSort ts
+         else mapM_ (putStrLn . snd) ts
+  where
+    reverseSort = sortBy (flip compare)
 
 cat (Cat noheaders id) = do
   files <- getFiles Nothing ["name:"++id]  -- TODO not solid. TODO use tag
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
   if noheaders
-     then putStr $ intercalate "\n" $ contents
+     then putStr $ intercalate "\n" contents
      else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header f ++ c) files contents
   where
-    header s = s ++ "\n" ++ take (length s) (repeat '=') ++ "\n"
+    header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
 
 edit dir (Edit id) = do
   files <- processFiles Nothing <$> mdfind' dir ["name:"++id]  -- TODO not solid.
@@ -93,7 +95,7 @@ edit dir (Edit id) = do
   code <- rawSystem cmd (args ++ map (dir </>) files)
   case code of
     ExitSuccess -> return ()
-    otherwise   -> print code
+    _           -> print code
 
 
 -- List files with bad names.
@@ -104,11 +106,10 @@ check (Check True False) = do
                  $ filter (/= "..")
                  $ filter (not . (=~ hiddenP))
                  $ filter (not . (=~ filePattern'))
-                 $ files
+                 files
 
 -- List files with bad references.
-check (Check False True) = do
-  putStrLn "NOT IMPLEMENTED" -- TODO
+check (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
 
 -- List bad files with headers.
 check (Check False False) = do
@@ -146,7 +147,7 @@ new dir (New empty tag name) = do
   code <- rawSystem cmd [dir </> newfile]
   case code of
     ExitSuccess -> putStrLn newfile
-    otherwise   -> print code
+    _           -> print code
 
 getFiles Nothing    []    = processFiles Nothing <$> mdlist
 getFiles Nothing    terms = processFiles Nothing <$> mdfind terms

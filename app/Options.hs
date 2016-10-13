@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 
 
@@ -89,10 +88,10 @@ descText = "nn is a tool for conveniently and efficiently creating, searching, a
         <> "Different behaviours are invoked by different subcommands."
         <> "The default behaviour, when no subcommand is passed, is to search for notes."
 
-description = (fullDesc
+description = fullDesc
     <> header "nn - a note management tool"
     <> progDesc descText
-    <> footer "(c) 2016, Bjorn Buckwalter")
+    <> footer "(c) 2016, Bjorn Buckwalter"
 
 parseCommand :: IO Command
 parseCommand = execParser (info (helper <*> options) description)

@@ -1,6 +1,7 @@
 module NNUtil where
 
 import Control.Applicative
+import Control.Arrow ((&&&))
 import Data.List
 import Data.List.Split
 import Data.Time
@@ -15,15 +16,12 @@ mdfind args = do
   dir <- getCurrentDirectory
   map takeFileName . endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
   where
-    stdArgs dir = [ "-onlyin", dir
-                  , "-0"
-                  ]
-mdfind' dir args = do
-  map takeFileName . endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
+    stdArgs dir = [ "-onlyin", dir , "-0" ]
+
+mdfind' dir args = map takeFileName . endBy "\0"
+               <$> readProcess "mdfind" (stdArgs dir ++ args) ""
   where
-    stdArgs dir = [ "-onlyin", dir
-                  , "-0"
-                  ]
+    stdArgs dir = [ "-onlyin", dir , "-0" ]
 
 -- | List all files in the directory except for hidden files.
 mdlist = map takeFileName <$> (getDirectoryContents =<< getCurrentDirectory)
@@ -42,9 +40,11 @@ filePatternT tag = "^" ++ idP ++ taggedP tag ++ restP
 taggedP tag = "-" ++ tag ++ "-"
 
 -- | Extract tags from file names and count the number of uses of each tag.
+-- TODO Use regex for the extraction to make tag delimiter flexible?
 countTags :: [FilePath] -> [(Int, String)]
 countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-'))
-  where f xs = zip (map length xs) (map head xs)
+  where f = map (length &&& head)
+  -- where f xs = zip (map length xs) (map head xs)
 
 -- | Create an ID for a new file. Specifically a time stamp
 -- based on the current local time with minute precision.
@@ -52,4 +52,4 @@ makeID :: IO String
 makeID = do
   t  <- getCurrentTime
   tz <- getCurrentTimeZone
-  return $ formatTime undefined ("%Y_%m_%d_%H%M") $ utcToLocalTime tz t
+  return $ formatTime undefined "%Y_%m_%d_%H%M" $ utcToLocalTime tz t
