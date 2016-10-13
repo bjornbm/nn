@@ -2,7 +2,7 @@
 
 import Control.Applicative
 import System.IO.Error(catchIOError)
-import Data.List (intercalate, sort)
+import Data.List (intercalate, sort, sortBy)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>), (<.>), takeFileName, takeExtension)
