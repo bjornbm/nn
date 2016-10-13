@@ -1,6 +1,6 @@
 name:                nn
-version:             0.1.0.0
-synopsis:            Command line tool for note taking similar to Notational Velocity or nvALT.
+version:             0.2.0.0
+synopsis:            Command line tool for note taking inspired by Notational Velocity or nvALT.
 description:         Please see README.md
 homepage:            http://github.com/bjornbm/nn#readme
 license:             BSD3
@@ -31,7 +31,6 @@ executable nn
                      , directory
                      , filepath
                      , process
-                     , cmdargs
                      , regex-tdfa
                      , split
                      , optparse-applicative >= 0.13
