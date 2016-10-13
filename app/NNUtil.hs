@@ -12,9 +12,8 @@ import System.Process
 
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
-mdfind args = do
-  dir <- getCurrentDirectory
-  map takeFileName . endBy "\0" <$> readProcess "mdfind" (stdArgs dir ++ args) ""
+mdfind dir args = map takeFileName . endBy "\0"
+              <$> readProcess "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir = [ "-onlyin", dir , "-0" ]
 
@@ -24,7 +23,7 @@ mdfind' dir args = map takeFileName . endBy "\0"
     stdArgs dir = [ "-onlyin", dir , "-0" ]
 
 -- | List all files in the directory except for hidden files.
-mdlist = map takeFileName <$> (getDirectoryContents =<< getCurrentDirectory)
+mdlist dir = map takeFileName <$> getDirectoryContents dir
 
 
 -- Regex patterns.

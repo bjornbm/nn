@@ -49,38 +49,38 @@ main = do
   command <- parseCommand
   dir <- getEnv "NN_HOME"
   case command of
-    List  {} -> setCurrentDirectory dir >> list  command  -- TODO don't cd!
-    Cat   {} -> setCurrentDirectory dir >> cat   command
-    Tags  {} -> setCurrentDirectory dir >> tags  command
-    Check {} -> setCurrentDirectory dir >> check command
-    Save  {} -> save dir command
-    New   {} -> new  dir command
-    Edit  {} -> edit dir command
-    _        -> setCurrentDirectory dir >> list command
+    List  {} -> list  dir command  -- TODO don't cd!
+    Cat   {} -> cat   dir command
+    Tags  {} -> tags  dir command
+    Check {} -> check dir command
+    Save  {} -> save  dir command
+    New   {} -> new   dir command
+    Edit  {} -> edit  dir command
+    _        -> list  dir command
 
 
 -- List the names of files matching the terms.
-list (None terms) = mapM_ putStrLn =<< getFiles Nothing terms
-list (List _ Nothing tag terms) = mapM_ putStrLn =<< getFiles tag terms
+list dir (None terms) = mapM_ putStrLn =<< getFiles dir Nothing terms
+list dir (List _ Nothing tag terms) = mapM_ putStrLn =<< getFiles dir tag terms
 
 -- Apply command specified with --exec to files matching the terms.
-list (List _ (Just exec) tag terms) = do
-  files <- getFiles tag terms
+list dir (List _ (Just exec) tag terms) = do
+  files <- getFiles dir tag terms
   let cmd:args = words exec
   code <- rawSystem cmd (args ++ files)
   case code of
     ExitSuccess -> return ()
     _           -> print code
 
-tags (Tags pop) = do
-  ts <- countTags <$> getFiles Nothing []
+tags dir (Tags pop) = do
+  ts <- countTags <$> getFiles dir Nothing []
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverseSort ts
          else mapM_ (putStrLn . snd) ts
   where
     reverseSort = sortBy (flip compare)
 
-cat (Cat noheaders id) = do
-  files <- getFiles Nothing ["name:"++id]  -- TODO not solid. TODO use tag
+cat dir (Cat noheaders id) = do
+  files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
   contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
   if noheaders
      then putStr $ intercalate "\n" contents
@@ -99,8 +99,9 @@ edit dir (Edit id) = do
 
 
 -- List files with bad names.
-check (Check True False) = do
-  files <- mdlist
+check :: FilePath -> Command -> IO ()
+check dir (Check True False) = do
+  files <- mdlist dir
   mapM_ putStrLn $ sort
                  $ filter (/= ".")
                  $ filter (/= "..")
@@ -109,13 +110,13 @@ check (Check True False) = do
                  files
 
 -- List files with bad references.
-check (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
+check dir (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
 
 -- List bad files with headers.
-check (Check False False) = do
+check dir (Check False False) = do
   putStrLn "Badly named files"
   putStrLn "-----------------"
-  check (Check True False)
+  check dir (Check True False)
   putStrLn ""
   putStrLn "Files with duplicate identifiers"
   putStrLn "--------------------------------"
@@ -123,11 +124,11 @@ check (Check False False) = do
   putStrLn ""
   putStrLn "Files with bad references"
   putStrLn "-------------------------"
-  check (Check False True)
+  check dir (Check False True)
 
-check (Check True True) = do
-  check (Check True False)
-  check (Check False True)
+check dir (Check True True) = do
+  check dir (Check True False)
+  check dir (Check False True)
 
 
 save dir (Save Nothing tag file) = save' dir tag file (takeFileName file)
@@ -149,9 +150,9 @@ new dir (New empty tag name) = do
     ExitSuccess -> putStrLn newfile
     _           -> print code
 
-getFiles Nothing    []    = processFiles Nothing <$> mdlist
-getFiles Nothing    terms = processFiles Nothing <$> mdfind terms
-getFiles (Just tag) terms = processFiles (Just tag) <$> mdfind (tag:terms)
+getFiles dir Nothing    []    = processFiles Nothing    <$> mdlist dir
+getFiles dir Nothing    terms = processFiles Nothing    <$> mdfind dir terms
+getFiles dir (Just tag) terms = processFiles (Just tag) <$> mdfind dir (tag:terms)
 
 processFiles :: Maybe String -> [FilePath] -> [String]
 processFiles Nothing = sort . filter (=~ filePattern0)
