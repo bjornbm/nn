@@ -1,5 +1,49 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 
+{-
+
+Global options:
+
+    --home NN_HOME
+    --editor NN_EDITOR
+
+Multiple note selection:
+
+   [-i ID] [-t TAG] [--name TERMS] [SEARCH TERMS]
+
+Multiple section commands:
+
+    nn list
+    nn path
+    nn cat
+    nn exec
+    nn edit
+    nn delete
+    nn retag
+    nn obsolete
+    nn pretty
+    nn pandoc
+
+Single note selection:
+
+    -i ID
+
+Single note commands:
+
+    nn redate -i ID (time)
+    nn rename -i ID NAME
+
+Note creation commands:
+
+    nn new (-i ID) TAG NAME
+    nn save (-i ID) -t TAG (--name NAME) FILE
+
+Sanity checking commands:
+
+    nn check
+    nn stats
+
+-}
 
 
 -- TODO creat Types module?
