@@ -32,11 +32,13 @@ Single note commands:
 
     nn redate -i ID (time)
     nn rename -i ID NAME
+    nn copy -i ID NAME   # nn cat -i ID | pbcopy
 
 Note creation commands:
 
     nn new (-i ID) TAG NAME
     nn save (-i ID) -t TAG (--name NAME) FILE
+    nn paste (-i ID) TAG NAME   # pbpaste | nn new TAG NAME
 
 Sanity checking commands:
 
