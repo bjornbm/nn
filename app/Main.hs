@@ -81,7 +81,7 @@ tags dir (Tags pop) = do
 
 cat dir (Cat noheaders id) = do
   files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
-  contents <- mapM readFile files  -- TODO doesn't work with unicode filenames. Fixed in 7.2.1?
+  contents <- mapM (readFile . (dir </>)) files
   if noheaders
      then putStr $ intercalate "\n" contents
      else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header f ++ c) files contents
