@@ -5,6 +5,8 @@ import Control.Arrow ((&&&))
 import Data.List
 import Data.List.Split
 import Data.Time
+import GHC.IO.Encoding
+import GHC.IO.Handle
 import System.Directory
 import System.FilePath
 import System.Process
@@ -12,6 +14,18 @@ import System.Process
 
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
+mdfind dir args = do
+  (_, Just h, _, _) <- createProcess (proc "mdfind" (stdArgs dir ++ args)){std_out=CreatePipe}
+  print =<< getFileSystemEncoding
+  print =<< getLocaleEncoding
+  print =<< getForeignEncoding
+  hSetEncoding h char8
+  x <- map takeFileName . endBy "\0" <$> hGetContents h
+  mapM_ putStrLn x
+  return x
+  where
+    stdArgs dir = [ "-onlyin", dir , "-0" ]
+
 mdfind dir args = map takeFileName . endBy "\0"
               <$> readProcess "mdfind" (stdArgs dir ++ args) ""
   where
