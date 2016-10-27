@@ -3,13 +3,13 @@
 import Control.Applicative
 import System.IO.Error(catchIOError)
 import Data.List (intercalate, sort, sortBy)
+--import qualified Data.Text as T
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>), (<.>), takeFileName, takeExtension)
 import System.Process (rawSystem)
 import NNUtil
 import System.Directory (setCurrentDirectory, copyFile)
-import Prelude hiding (all)
 import Text.Printf (printf)
 
 import Text.Regex.TDFA
@@ -49,7 +49,7 @@ main = do
   command <- parseCommand
   dir <- getEnv "NN_HOME"
   case command of
-    List  {} -> list  dir command  -- TODO don't cd!
+    List  {} -> list  dir command
     Cat   {} -> cat   dir command
     Tags  {} -> tags  dir command
     Check {} -> check dir command
@@ -87,9 +87,12 @@ cat dir (Cat noheaders id) = do
      else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header f ++ c) files contents
   where
     header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
+                         -- TODO the above doesn't work properly for åäö filenames.
+                         -- Desperate variation below using Text won't fix it.
+    --header s = s ++ "\n" ++ replicate (T.length $ T.pack s) '=' ++ "\n"
 
 edit dir (Edit id) = do
-  files <- processFiles Nothing <$> mdfind' dir ["name:"++id]  -- TODO not solid.
+  files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
   code <- rawSystem cmd (args ++ map (dir </>) files)
