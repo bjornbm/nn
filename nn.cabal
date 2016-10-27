@@ -28,6 +28,7 @@ executable nn
   build-depends:       base
                      --, nn
                      , text
+                     , text-icu
                      , time
                      , directory
                      , filepath

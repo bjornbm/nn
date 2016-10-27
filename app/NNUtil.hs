@@ -4,6 +4,8 @@ import Control.Applicative
 import Control.Arrow ((&&&))
 import Data.List
 import Data.List.Split
+import qualified Data.Text as T
+import qualified Data.Text.ICU.Normalize as T
 import Data.Time
 import GHC.IO.Encoding
 import GHC.IO.Handle
@@ -19,10 +21,12 @@ mdfind dir args = do
   print =<< getFileSystemEncoding
   print =<< getLocaleEncoding
   print =<< getForeignEncoding
-  hSetEncoding h char8
+  hSetEncoding h utf8
   x <- map takeFileName . endBy "\0" <$> hGetContents h
   mapM_ putStrLn x
-  return x
+  let y = map T.pack x
+  print $ map (T.isNormalized T.NFC) y
+  return $ map (T.unpack . T.normalize T.NFC) y
   where
     stdArgs dir = [ "-onlyin", dir , "-0" ]
 

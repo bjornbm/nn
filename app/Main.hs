@@ -89,6 +89,10 @@ cat dir (Cat noheaders id) = do
     header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
                          -- TODO the above doesn't work properly for åäö filenames.
                          -- Desperate variation below using Text won't fix it.
+                         -- `mdfind` uses a bizarre output encoding that is not
+                         -- the same as for example that used by `ls` (although
+                         -- visually and from a file system point of view it
+                         -- appears to be equivalent).
     --header s = s ++ "\n" ++ replicate (T.length $ T.pack s) '=' ++ "\n"
 
 edit dir (Edit id) = do
