@@ -5,7 +5,7 @@ import Control.Arrow ((&&&))
 import Data.List
 import Data.List.Split
 import Data.Text (pack, unpack)
-import Data.Text.ICU.Normalize (normalize, NormalizationMode (NFC))
+import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import GHC.IO.Encoding
 import GHC.IO.Handle
