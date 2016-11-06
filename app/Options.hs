@@ -6,6 +6,7 @@ Global options:
 
     --home NN_HOME
     --editor NN_EDITOR
+    --dry-run
 
 Multiple note selection:
 
