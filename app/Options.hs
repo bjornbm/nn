@@ -68,14 +68,14 @@ data Options = Options
 
 
 data Command
-  = List  { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
-  | Cat   { noheaders :: Bool, id :: String }
-  | Edit  { id :: String }
-  | Tags  { popularity :: Bool }
-  | Check { names :: Bool, references :: Bool }
-  | Save  { rename :: Maybe String, tag :: String, file :: String }
-  | New   { empty :: Bool, tag :: String, name :: [String] }
-  | None  { terms :: [String] }
+  = List     { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
+  | Cat      { noheaders :: Bool, id :: String }
+  | Edit     { id :: String }
+  | Tags     { popularity :: Bool }
+  | Check    { names :: Bool, references :: Bool }
+  | Save     { rename :: Maybe String, tag :: String, file :: String }
+  | New      { empty :: Bool, tag :: String, name :: [String] }
+  | None     { terms :: [String] }
   | Obsolete { dryrun :: Bool, id :: String }
   deriving (Show) -- , Data, Typeable)
 
@@ -90,13 +90,13 @@ manyArguments = many . argument str . metavar
 someArguments = some . argument str . metavar
 
 options = subparser
-  (  commandhd "list"   listOptions "List notes"
-  <> commandhd "cat"     catOptions "Concatenate notes to STDOUT"
-  <> commandhd "edit"   editOptions "Edit notes"
-  <> commandhd "tags"   tagsOptions "Display all tags currently in use"
-  <> commandhd "check" checkOptions "Sanity check notes"
-  <> commandhd "save"   saveOptions "Import any file as a note"
-  <> commandhd "new"     newOptions "Create a new note"
+  (  commandhd "list"         listOptions "List notes"
+  <> commandhd "cat"           catOptions "Concatenate notes to STDOUT"
+  <> commandhd "edit"         editOptions "Edit notes"
+  <> commandhd "tags"         tagsOptions "Display all tags currently in use"
+  <> commandhd "check"       checkOptions "Sanity check notes"
+  <> commandhd "save"         saveOptions "Import any file as a note"
+  <> commandhd "new"           newOptions "Create a new note"
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   ) <|> (None <$> manyArguments "SEARCH TERMS")
 
