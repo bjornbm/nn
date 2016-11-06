@@ -113,7 +113,7 @@ catOptions = Cat
   <*> argument str (help "The ID of the note to cat" <> metavar "ID")
 
 editOptions = Edit
-  <$> strOption (lsh "id" 'i' "The ID of the note to cat" <> metavar "ID")
+  <$> strOption (lsh "id" 'i' "The ID of the note to edit" <> metavar "ID")
 
 tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")
