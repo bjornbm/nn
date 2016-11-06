@@ -20,6 +20,7 @@ import Options
 defaultEditor = const (return "vim")
 
 {- TODO:
+-  Consistent terminology (file or note?)
 -  Global option to specify NN_DIR.
 -  Shouldn't change cwd when usind list --exec!
 -  Option to print full file name including path (in quotes or with with escaped spaces?)
@@ -56,6 +57,7 @@ main = do
     Save  {} -> save  dir command
     New   {} -> new   dir command
     Edit  {} -> edit  dir command
+    Obsolete {} -> obsolete  dir command
     _        -> list  dir command
 
 
@@ -104,6 +106,20 @@ edit dir (Edit id) = do
     ExitSuccess -> return ()
     _           -> print code
 
+-- | Mark files as obsolete (prepend a '+' to the file name).
+--   TODO make sure selection works as desired.
+--   TODO add a --dry-run option?
+obsolete dir (Obsolete dry id) = do
+  files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
+  mapM_ (f dir dry) files
+    where
+      f dir True  file = do
+        putStrLn $ (dir </> file) ++ " would be renamed " ++ (dir </> ('+' : file))
+      f dir False file = do
+        code <- rawSystem "mv" [dir </> file, dir </> ('+' : file)]
+        case code of
+          ExitSuccess -> return ()
+          _           -> print code
 
 -- List files with bad names.
 check :: FilePath -> Command -> IO ()
