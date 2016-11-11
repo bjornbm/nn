@@ -6,6 +6,7 @@ Global options:
 
     --home NN_HOME
     --editor NN_EDITOR
+    --dry-run
 
 Multiple note selection:
 
@@ -67,14 +68,15 @@ data Options = Options
 
 
 data Command
-  = List  { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
-  | Cat   { noheaders :: Bool, id :: String }
-  | Edit  { id :: String }
-  | Tags  { popularity :: Bool }
-  | Check { names :: Bool, references :: Bool }
-  | Save  { rename :: Maybe String, tag :: String, file :: String }
-  | New   { empty :: Bool, tag :: String, name :: [String] }
-  | None  { terms :: [String] }
+  = List     { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
+  | Cat      { noheaders :: Bool, id :: String }
+  | Edit     { id :: String }
+  | Tags     { popularity :: Bool }
+  | Check    { names :: Bool, references :: Bool }
+  | Save     { rename :: Maybe String, tag :: String, file :: String }
+  | New      { empty :: Bool, tag :: String, name :: [String] }
+  | None     { terms :: [String] }
+  | Obsolete { dryrun :: Bool, id :: String }
   deriving (Show) -- , Data, Typeable)
 
 
@@ -88,13 +90,14 @@ manyArguments = many . argument str . metavar
 someArguments = some . argument str . metavar
 
 options = subparser
-  (  commandhd "list"   listOptions "List notes"
-  <> commandhd "cat"     catOptions "Concatenate notes to STDOUT"
-  <> commandhd "edit"   editOptions "Edit notes"
-  <> commandhd "tags"   tagsOptions "Display all tags currently in use"
-  <> commandhd "check" checkOptions "Sanity check notes"
-  <> commandhd "save"   saveOptions "Import any file as a note"
-  <> commandhd "new"     newOptions "Create a new note"
+  (  commandhd "list"         listOptions "List notes"
+  <> commandhd "cat"           catOptions "Concatenate notes to STDOUT"
+  <> commandhd "edit"         editOptions "Edit notes"
+  <> commandhd "tags"         tagsOptions "Display all tags currently in use"
+  <> commandhd "check"       checkOptions "Sanity check notes"
+  <> commandhd "save"         saveOptions "Import any file as a note"
+  <> commandhd "new"           newOptions "Create a new note"
+  <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   ) <|> (None <$> manyArguments "SEARCH TERMS")
 
 listOptions = List
@@ -110,7 +113,7 @@ catOptions = Cat
   <*> argument str (help "The ID of the note to cat" <> metavar "ID")
 
 editOptions = Edit
-  <$> strOption (lsh "id" 'i' "The ID of the note to cat" <> metavar "ID")
+  <$> strOption (lsh "id" 'i' "The ID of the note to edit" <> metavar "ID")
 
 tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")
@@ -129,6 +132,9 @@ newOptions = New
   <*> argument str (metavar "TAG")
   <*> someArguments "NAME"  -- TODO: should be TITLE?
 
+obsoleteOptions = Obsolete
+  <$> switch (long "dry-run" <> help "Show how the files would be renames, but don't actually do anything.")
+  <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes."
         <> "Different behaviours are invoked by different subcommands."

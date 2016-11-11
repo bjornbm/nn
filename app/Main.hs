@@ -20,6 +20,7 @@ import Options
 defaultEditor = const (return "vim")
 
 {- TODO:
+-  Consistent terminology (file or note?)
 -  Global option to specify NN_DIR.
 -  Shouldn't change cwd when usind list --exec!
 -  Option to print full file name including path (in quotes or with with escaped spaces?)
@@ -31,7 +32,7 @@ defaultEditor = const (return "vim")
 -  nn redate command, takes -i and optional new date (otherwise now)
 -  nn pandoc command?
 -  nn pretty command? (| pandoc --smart --to=plain)
--  nn obsolete command, takes -i and adds + in front of ID
++  nn obsolete command, takes -i and adds + in front of ID
 -  nn path command, returns full path of matching files
 -  Consistently use search term and or -i for edit, cat, etc.
 -  Allow multiple tags separated by underscore {ID}-tag1_tag2-{TITLE}
@@ -49,13 +50,14 @@ main = do
   command <- parseCommand
   dir <- getEnv "NN_HOME"
   case command of
-    List  {} -> list  dir command
-    Cat   {} -> cat   dir command
-    Tags  {} -> tags  dir command
-    Check {} -> check dir command
-    Save  {} -> save  dir command
-    New   {} -> new   dir command
-    Edit  {} -> edit  dir command
+    List     {} -> list  dir command
+    Cat      {} -> cat   dir command
+    Tags     {} -> tags  dir command
+    Check    {} -> check dir command
+    Save     {} -> save  dir command
+    New      {} -> new   dir command
+    Edit     {} -> edit  dir command
+    Obsolete {} -> obsolete  dir command
     _        -> list  dir command
 
 
@@ -104,6 +106,19 @@ edit dir (Edit id) = do
     ExitSuccess -> return ()
     _           -> print code
 
+-- | Mark files as obsolete (prepend a '+' to the file name).
+--   TODO make sure selection works as desired.
+--   TODO add a --dry-run option?
+obsolete dir (Obsolete dry id) = do
+  files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
+  mapM_ (f dir dry) files
+    where
+      f dir True file = putStrLn $ (dir </> file) ++ " would be renamed " ++ (dir </> ('+' : file))
+      f dir _    file = do
+        code <- rawSystem "mv" [dir </> file, dir </> ('+' : file)]
+        case code of
+          ExitSuccess -> return ()
+          _           -> print code
 
 -- List files with bad names.
 check :: FilePath -> Command -> IO ()
