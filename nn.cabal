@@ -47,7 +47,7 @@ executable nnselect
   build-depends:       base
                      --, nn
                      , text
-                     , text-icu
+                     , unicode-transforms
                      , time
                      , directory
                      , filepath
