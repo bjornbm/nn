@@ -5,3 +5,6 @@ for tag in $(nn tags); do
     alias nn${tag}="nn new $tag"  # Create new file with tag.
     alias nn${tag}s="nn list name:-${tag}-"  # List all files with tag.
 done
+
+# Cat with pandoc to less
+alias nnplain='f() { nn cat $1 | pandoc --to=plain | less };f'
