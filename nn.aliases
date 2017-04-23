@@ -8,3 +8,4 @@ done
 
 # Cat with pandoc to less
 alias nnplain='f() { nn cat $1 | pandoc --to=plain | less };f'
+alias nncat='nn cat'
