@@ -43,6 +43,7 @@ defaultEditor = const (return "vim")
 -  Change ID format from 2014_05_20_1738 to 20140520T1738?
 -  nn stats command to list total number of current and obsolete files, etc?
 -  nn check files without tags and without titles
+-  When listing, indicate empty files (or number of lines in file?)
 -}
 
 
