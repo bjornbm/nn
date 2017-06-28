@@ -44,6 +44,7 @@ defaultEditor = const (return "vim")
 -  nn stats command to list total number of current and obsolete files, etc?
 -  nn check files without tags and without titles
 -  When listing, indicate empty files (or number of lines in file?)
+-  Allow multiple --tag (should they be OR or AND (only meaningful with support for multiple tags))
 -}
 
 
