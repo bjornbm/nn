@@ -3,7 +3,7 @@ alias nne="nn edit -i"  # Edit
 
 for tag in $(nn tags); do
     alias nn${tag}="nn new $tag"  # Create new file with tag.
-    alias nn${tag}s="nn list name:-${tag}-"  # List all files with tag.
+    alias nn${tag}s="nn list --tag "${tag}"  # List all files with tag.
 done
 
 # Cat with pandoc to less
