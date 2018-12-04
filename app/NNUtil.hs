@@ -10,7 +10,9 @@ import Data.Time
 import GHC.IO.Encoding
 import GHC.IO.Handle
 import Path ( Path (..), Abs (..), Dir (..), File (..)
-            , filename, parseAbsFile, fromAbsDir, fromAbsFile
+            , parent, parseRelDir, fromAbsDir
+            , filename, fileExtension, parseAbsFile, fromAbsFile
+            , (</>), (-<.>)
             )
 import Path.IO (listDir)
 import System.Process
@@ -71,4 +73,10 @@ checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
            , "-t-\"Created by nn.\""  -- File description (first checkin).
            , "-m\"Updated by nn.\""   -- Log message (second+ checkins).
            ]
+
+-- | The file name of the RCS file corresponding to a note file.
+rcsfile :: Path Abs File -> IO (Path Abs File)
+rcsfile file = do
+  rcsdir <- (parent file </>) <$> parseRelDir "RCS"
+  (rcsdir </> filename file) -<.> (fileExtension file ++ ",v")
 

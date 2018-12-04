@@ -6,11 +6,11 @@ import System.IO.Error(catchIOError)
 import Data.List (intercalate, sort, sortBy)
 --import qualified Data.Text as T
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
-            , parseAbsDir, parseAbsFile, parseRelFile
+            , parseAbsDir, parseRelFile
             , fromRelFile, fromAbsFile
-            , filename, fileExtension
+            , parent, filename, fileExtension
             , (</>), (<.>), (-<.>))
-import Path.IO (copyFile)
+import Path.IO (copyFile, renameFile)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (rawSystem)
@@ -95,7 +95,7 @@ cat dir (Cat noheaders id) = do
   contents <- mapM (readFile . fromAbsFile) files
   if noheaders
      then putStr $ intercalate "\n" contents
-     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header (fromRelFile $ filename f) ++ c) files contents
+     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header (filename' f) ++ c) files contents
   where
     header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
                          -- TODO the above doesn't work properly for åäö filenames.
@@ -120,21 +120,21 @@ edit dir (Edit id) = do
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
 obsolete :: Path Abs Dir -> Command -> IO ()
-obsolete dir (Obsolete dry id) = do undefined
-  {-
+obsolete dir (Obsolete dry id) = do
   files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
-  mapM_ (f dir dry) files
-    where
-      f dir True file = putStrLn $ (dir </> file) ++ " would be renamed "
-                                ++ (dir </> ('+' : file))
-      f dir _    file = do
-        rawSystem "mv" [dir </> file, dir </> ('+' : file)] >>= \case
-          ExitSuccess -> rawSystem "mv" [ dir </> "RCS" </> (file ++ ",v")
-                                        , dir </> "RCS" </> ('+' : file ++ ",v")] >>= \case
-            ExitSuccess -> putStrLn ('+' : file)
-            code        -> print code
-          code        -> print code
-          -}
+  mapM_ (if dry then dryrun else run) files
+  where
+      obsfile :: Path Abs File -> IO (Path Abs File)
+      obsfile file = (parent file </>) <$> parseRelFile ('+' : filename' file)
+      obsrcsfile :: Path Abs File -> IO (Path Abs File)
+      obsrcsfile file = obsfile file >>= rcsfile
+      dryrun file = printf "%s would be renamed %s\n" (fromAbsFile file)
+                  . fromAbsFile =<< obsfile file
+      run file = do
+        renameFile file =<< obsfile file
+        rcs <- rcsfile file
+        renameFile rcs  =<< obsrcsfile file
+        printFile =<< obsfile file  -- Show the new filename.
 
 -- List files with bad names.
 check :: Path Abs Dir -> Command -> IO ()
@@ -145,7 +145,7 @@ check dir (Check True False) = do
                  $ filter (/= "..")
                  $ filter (not . (=~ hiddenP))
                  $ filter (not . (=~ filePattern'))
-                 $ map (fromRelFile . filename) files
+                 $ map filename' files
 
 -- List files with bad references.
 check dir (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
@@ -208,11 +208,14 @@ processFiles Nothing    = processFiles'  filePattern0
 processFiles (Just tag) = processFiles' (filePatternT tag)
 
 processFiles' :: String -> [Path Abs File] -> [Path Abs File]
-processFiles' pattern = sort . filter (f . fromRelFile . filename)
+processFiles' pattern = sort . filter (f . filename')
   where
     f :: String -> Bool
     f file = not (file =~ rcsP) && (file =~ pattern)
            -- ignore RCS files.
 
+filename' :: Path Abs File -> String
+filename' = fromRelFile . filename
+
 printFile :: Path Abs File -> IO ()
-printFile = putStrLn . fromRelFile . filename
+printFile = putStrLn . filename'
