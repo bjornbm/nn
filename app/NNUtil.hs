@@ -34,6 +34,7 @@ idP   = "\\<[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{4}\\>"
 tagP  = "-[a-zA-Z0-9åäöÅÄÖ]+-"  -- TODO åäöÅÄÖ don't work.
 restP = ".+[^~]$"  -- Ignore unix (vim) backup files.
 hiddenP = "^\\."   -- Ignore hidden files.
+rcsP = ",v$"
 filePattern  = obsP ++ idP ++ tagP ++ restP
 filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
 filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.

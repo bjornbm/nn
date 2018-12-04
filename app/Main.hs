@@ -179,5 +179,9 @@ getFiles dir Nothing    terms = processFiles Nothing    <$> mdfind dir terms
 getFiles dir (Just tag) terms = processFiles (Just tag) <$> mdfind dir (tag:terms)
 
 processFiles :: Maybe String -> [FilePath] -> [String]
-processFiles Nothing = sort . filter (=~ filePattern0)
-processFiles (Just tag) = sort . filter (=~ filePatternT tag)
+processFiles Nothing    = processFiles'  filePattern0
+processFiles (Just tag) = processFiles' (filePatternT tag)
+
+processFiles' :: String -> [FilePath] -> [String]
+processFiles' pattern = sort . filter (=~ pattern)
+                             . filter (not . (=~ rcsP))  -- Ignore RCS files
