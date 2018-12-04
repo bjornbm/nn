@@ -136,14 +136,14 @@ obsoleteOptions = Obsolete
   <$> switch (long "dry-run" <> help "Show how the files would be renames, but don't actually do anything.")
   <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
 
-descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes."
-        <> "Different behaviours are invoked by different subcommands."
-        <> "The default behaviour, when no subcommand is passed, is to search for notes."
+descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
+        <> "Different behaviors are invoked by different subcommands. "
+        <> "The default behavior, when no subcommand is passed, is to search for notes."
 
 description = fullDesc
     <> header "nn - a note management tool"
     <> progDesc descText
-    <> footer "(c) 2016, Bjorn Buckwalter"
+    <> footer "(c) 2016–2018, Bjorn Buckwalter"
 
 parseCommand :: IO Command
 parseCommand = execParser (info (helper <*> options) description)
