@@ -51,17 +51,17 @@ defaultEditor = const (return "vim")
 
 main = do
   command <- parseCommand
-  dir <- getEnv "NN_HOME"
+  dir <- getEnv "NN_HOME"  -- TODO graceful error handling.
   case command of
-    List     {} -> list  dir command
-    Cat      {} -> cat   dir command
-    Tags     {} -> tags  dir command
-    Check    {} -> check dir command
-    Save     {} -> save  dir command
-    New      {} -> new   dir command
-    Edit     {} -> edit  dir command
-    Obsolete {} -> obsolete  dir command
-    _        -> list  dir command
+    List     {} -> list     dir command
+    Cat      {} -> cat      dir command
+    Tags     {} -> tags     dir command
+    Check    {} -> check    dir command
+    Save     {} -> save     dir command
+    New      {} -> new      dir command
+    Edit     {} -> edit     dir command
+    Obsolete {} -> obsolete dir command
+    _           -> list     dir command
 
 
 -- List the names of files matching the terms.
