@@ -138,7 +138,8 @@ obsoleteOptions = Obsolete
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
         <> "Different behaviors are invoked by different subcommands. "
-        <> "The default behavior, when no subcommand is passed, is to search for notes."
+        <> "The default behavior, when no subcommand is passed, is to search for notes. "
+        <> "nn will create and search for notes in the directory identified by the environment variable $NN_HOME."
 
 description = fullDesc
     <> header "nn - a note management tool"
