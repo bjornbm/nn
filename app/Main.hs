@@ -1,4 +1,5 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE LambdaCase #-}
 
 import Control.Applicative
 import System.IO.Error(catchIOError)
@@ -103,10 +104,11 @@ edit dir (Edit id) = do
   files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
-  code <- rawSystem cmd (args ++ map (dir </>) files)
-  case code of
-    ExitSuccess -> return ()
-    _           -> print code
+  rawSystem cmd (args ++ map (dir </>) files) >>= \case
+    ExitSuccess -> checkin (map (dir </>) files) >>= \case
+        ExitSuccess -> mapM_ putStrLn files
+        code        -> print code
+    code        -> print code
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
@@ -162,17 +164,20 @@ save' dir tag file name = do
   id <- makeID
   let newfile = id ++ "-" ++ tag ++ "-" ++ name
   copyFile file (dir </> newfile)
-  putStrLn newfile
+  checkin [dir </> newfile] >>= \case
+    ExitSuccess -> putStrLn newfile
+    code        -> print code
 
 new dir (New empty tag name) = do
   id <- makeID
   let newfile = id ++ "-" ++ tag ++ "-" ++ unwords name <.> ".txt"
   cmd <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
-  code <- rawSystem cmd [dir </> newfile]
-  case code of
-    ExitSuccess -> putStrLn newfile
-    _           -> print code
+  rawSystem cmd [dir </> newfile] >>= \case
+    ExitSuccess -> checkin [dir </> newfile] >>= \case
+      ExitSuccess -> putStrLn newfile
+      code        -> print code
+    code        -> print code
 
 getFiles dir Nothing    []    = processFiles Nothing    <$> mdlist dir
 getFiles dir Nothing    terms = processFiles Nothing    <$> mdfind dir terms

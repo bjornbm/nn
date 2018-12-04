@@ -55,3 +55,13 @@ makeID = do
   t  <- getCurrentTime
   tz <- getCurrentTimeZone
   return $ formatTime undefined "%Y_%m_%d_%H%M" $ utcToLocalTime tz t
+
+-- | Check in file with RCS.
+checkin files = rawSystem "rcs" (args ++ files)
+  where
+    args = [ "ci"   -- Check in.
+           , "-l"   -- Check out the file locked (with write permissions).
+           , "-t-\"Created by nn.\""  -- File description (first checkin).
+           , "-m\"Updated by nn.\""   -- Log message (second+ checkins).
+           ]
+
