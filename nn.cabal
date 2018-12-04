@@ -31,6 +31,8 @@ executable nn
                      , time
                      , directory
                      , filepath
+                     , path
+                     , path-io
                      , process
                      , regex-tdfa
                      , split

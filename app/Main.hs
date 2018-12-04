@@ -5,12 +5,16 @@ import Control.Applicative
 import System.IO.Error(catchIOError)
 import Data.List (intercalate, sort, sortBy)
 --import qualified Data.Text as T
+import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
+            , parseAbsDir, parseAbsFile, parseRelFile
+            , fromRelFile, fromAbsFile
+            , filename, fileExtension
+            , (</>), (<.>), (-<.>))
+import Path.IO (copyFile)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
-import System.FilePath ((</>), (<.>), takeFileName, takeExtension)
 import System.Process (rawSystem)
 import NNUtil
-import System.Directory (setCurrentDirectory, copyFile)
 import Text.Printf (printf)
 
 import Text.Regex.TDFA
@@ -51,7 +55,7 @@ defaultEditor = const (return "vim")
 
 main = do
   command <- parseCommand
-  dir <- getEnv "NN_HOME"  -- TODO graceful error handling.
+  dir <- parseAbsDir =<< getEnv "NN_HOME"  -- TODO graceful error handling.
   case command of
     List     {} -> list     dir command
     Cat      {} -> cat      dir command
@@ -65,17 +69,19 @@ main = do
 
 
 -- List the names of files matching the terms.
-list dir (None terms) = mapM_ putStrLn =<< getFiles dir Nothing terms
-list dir (List _ Nothing tag terms) = mapM_ putStrLn =<< getFiles dir tag terms
+list :: Path Abs Dir -> Command -> IO ()
+list dir (None terms) = mapM_ printFile =<< getFiles dir Nothing terms
+list dir (List _ Nothing tag terms) = mapM_ printFile =<< getFiles dir tag terms
 
 -- Apply command specified with --exec to files matching the terms.
 list dir (List _ (Just exec) tag terms) = do
   files <- getFiles dir tag terms
   let cmd:args = words exec
-  rawSystem cmd (args ++ files) >>= \case
+  rawSystem cmd (args ++ map fromAbsFile files) >>= \case
     ExitSuccess -> return ()
     code        -> print code
 
+tags :: Path Abs Dir -> Command -> IO ()
 tags dir (Tags pop) = do
   ts <- countTags <$> getFiles dir Nothing []
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverseSort ts
@@ -83,12 +89,13 @@ tags dir (Tags pop) = do
   where
     reverseSort = sortBy (flip compare)
 
+cat :: Path Abs Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
   files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
-  contents <- mapM (readFile . (dir </>)) files
+  contents <- mapM (readFile . fromAbsFile) files
   if noheaders
      then putStr $ intercalate "\n" contents
-     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header f ++ c) files contents
+     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header (fromRelFile $ filename f) ++ c) files contents
   where
     header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
                          -- TODO the above doesn't work properly for åäö filenames.
@@ -99,19 +106,22 @@ cat dir (Cat noheaders id) = do
                          -- appears to be equivalent).
     --header s = s ++ "\n" ++ replicate (T.length $ T.pack s) '=' ++ "\n"
 
+edit :: Path Abs Dir -> Command -> IO ()
 edit dir (Edit id) = do
   files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
-  rawSystem cmd (args ++ map (dir </>) files) >>= \case
-    ExitSuccess -> checkin (map (dir </>) files) >>= \case
-        ExitSuccess -> mapM_ putStrLn files
+  rawSystem cmd (args ++ map fromAbsFile files) >>= \case
+    ExitSuccess -> checkin files >>= \case
+        ExitSuccess -> mapM_ printFile files
         code        -> print code
     code        -> print code
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
-obsolete dir (Obsolete dry id) = do
+obsolete :: Path Abs Dir -> Command -> IO ()
+obsolete dir (Obsolete dry id) = do undefined
+  {-
   files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
   mapM_ (f dir dry) files
     where
@@ -124,9 +134,10 @@ obsolete dir (Obsolete dry id) = do
             ExitSuccess -> putStrLn ('+' : file)
             code        -> print code
           code        -> print code
+          -}
 
 -- List files with bad names.
-check :: FilePath -> Command -> IO ()
+check :: Path Abs Dir -> Command -> IO ()
 check dir (Check True False) = do
   files <- mdlist dir
   mapM_ putStrLn $ sort
@@ -134,7 +145,7 @@ check dir (Check True False) = do
                  $ filter (/= "..")
                  $ filter (not . (=~ hiddenP))
                  $ filter (not . (=~ filePattern'))
-                 files
+                 $ map (fromRelFile . filename) files
 
 -- List files with bad references.
 check dir (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
@@ -159,36 +170,49 @@ check dir (Check True True) = do
 
 
 -- | Save ("import") a pre-existing file, optionally with a new name.
-save dir (Save Nothing tag file) = save' dir tag file (takeFileName file)
-save dir (Save (Just name) tag file) = save' dir tag file (name <.> takeExtension file)
+save :: Path Abs Dir -> Command -> IO ()
+save dir (Save (Just name) tag file) = save' dir tag name =<< parseRelFile file
+save dir (Save Nothing tag file) = do
+  file' <- parseRelFile file
+  name  <- fromRelFile <$> file' -<.> ""
+  save' dir tag name file'
 
-save' dir tag file name = do
+save' :: Path Abs Dir -> String -> String -> Path Rel File -> IO ()
+save' dir tag name file = do
   id <- makeID
-  let newfile = id ++ "-" ++ tag ++ "-" ++ name
+  newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ name ++ fileExtension file
   copyFile file (dir </> newfile)
   checkin [dir </> newfile] >>= \case
-    ExitSuccess -> putStrLn newfile
+    ExitSuccess -> putStrLn $ fromRelFile newfile
     code        -> print code
 
+new :: Path Abs Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
-  let newfile = id ++ "-" ++ tag ++ "-" ++ unwords name <.> ".txt"
+  newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ unwords name ++ ".txt"
   cmd <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
-  rawSystem cmd [dir </> newfile] >>= \case
+  rawSystem cmd [fromAbsFile (dir </> newfile)] >>= \case
     ExitSuccess -> checkin [dir </> newfile] >>= \case
-      ExitSuccess -> putStrLn newfile
+      ExitSuccess -> putStrLn $ fromRelFile newfile
       code        -> print code
     code        -> print code
 
+getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
 getFiles dir Nothing    []    = processFiles Nothing    <$> mdlist dir
 getFiles dir Nothing    terms = processFiles Nothing    <$> mdfind dir terms
 getFiles dir (Just tag) terms = processFiles (Just tag) <$> mdfind dir (tag:terms)
 
-processFiles :: Maybe String -> [FilePath] -> [String]
+processFiles :: Maybe String -> [Path Abs File] -> [Path Abs File]
 processFiles Nothing    = processFiles'  filePattern0
 processFiles (Just tag) = processFiles' (filePatternT tag)
 
-processFiles' :: String -> [FilePath] -> [String]
-processFiles' pattern = sort . filter (=~ pattern)
-                             . filter (not . (=~ rcsP))  -- Ignore RCS files
+processFiles' :: String -> [Path Abs File] -> [Path Abs File]
+processFiles' pattern = sort . filter (f . fromRelFile . filename)
+  where
+    f :: String -> Bool
+    f file = not (file =~ rcsP) && (file =~ pattern)
+           -- ignore RCS files.
+
+printFile :: Path Abs File -> IO ()
+printFile = putStrLn . fromRelFile . filename

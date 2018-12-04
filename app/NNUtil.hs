@@ -9,23 +9,28 @@ import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import GHC.IO.Encoding
 import GHC.IO.Handle
-import System.Directory
-import System.FilePath
+import Path ( Path (..), Abs (..), Dir (..), File (..)
+            , filename, parseAbsFile, fromAbsDir, fromAbsFile
+            )
+import Path.IO (listDir)
 import System.Process
 
 
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
-mdfind dir args = map takeFileName . endBy "\0"
-    . unpack . normalize NFC . pack  -- Needed because `mdfind` does not
-      -- use NFC normalisation for file names, so for
-      -- example `length "Ö" == 2`.
-  <$> readProcess "mdfind" (stdArgs dir ++ args) ""
+mdfind :: Path Abs Dir -> [String] -> IO [Path Abs File]
+mdfind dir args = mapM parseAbsFile . massage
+  =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
-    stdArgs dir = [ "-onlyin", dir , "-0" ]
+    stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
+    massage = endBy "\0"  -- Null-terminated filenames.
+            -- Normalize because `mdfind` does not use NFC
+            -- normalisation for file names, so for example
+            -- `length "Ö" == 2` in `mdfind` output..
+            . unpack . normalize NFC . pack
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = map takeFileName <$> getDirectoryContents dir
+mdlist dir = snd <$> listDir dir
 
 
 -- Regex patterns.
@@ -43,8 +48,9 @@ taggedP tag = "-" ++ tag ++ "-"
 
 -- | Extract tags from file names and count the number of uses of each tag.
 -- TODO Use regex for the extraction to make tag delimiter flexible?
-countTags :: [FilePath] -> [(Int, String)]
+countTags :: [Path Abs File] -> [(Int, String)]
 countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-'))
+          . map fromAbsFile
   where f = map (length &&& head)
   -- where f xs = zip (map length xs) (map head xs)
 
@@ -57,7 +63,8 @@ makeID = do
   return $ formatTime undefined "%Y_%m_%d_%H%M" $ utcToLocalTime tz t
 
 -- | Check in file with RCS.
-checkin files = rawSystem "rcs" (args ++ files)
+--checkin :: [Path Abs File] -> IO ExitCode
+checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
   where
     args = [ "ci"   -- Check in.
            , "-l"   -- Check out the file locked (with write permissions).
