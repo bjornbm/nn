@@ -111,15 +111,18 @@ edit dir (Edit id) = do
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
---   TODO add a --dry-run option?
 obsolete dir (Obsolete dry id) = do
   files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
   mapM_ (f dir dry) files
     where
-      f dir True file = putStrLn $ (dir </> file) ++ " would be renamed " ++ (dir </> ('+' : file))
+      f dir True file = putStrLn $ (dir </> file) ++ " would be renamed "
+                                ++ (dir </> ('+' : file))
       f dir _    file = do
         rawSystem "mv" [dir </> file, dir </> ('+' : file)] >>= \case
-          ExitSuccess -> return ()
+          ExitSuccess -> rawSystem "mv" [ dir </> "RCS" </> (file ++ ",v")
+                                        , dir </> "RCS" </> ('+' : file ++ ",v")] >>= \case
+            ExitSuccess -> putStrLn ('+' : file)
+            code        -> print code
           code        -> print code
 
 -- List files with bad names.
