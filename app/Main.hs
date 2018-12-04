@@ -72,10 +72,9 @@ list dir (List _ Nothing tag terms) = mapM_ putStrLn =<< getFiles dir tag terms
 list dir (List _ (Just exec) tag terms) = do
   files <- getFiles dir tag terms
   let cmd:args = words exec
-  code <- rawSystem cmd (args ++ files)
-  case code of
+  rawSystem cmd (args ++ files) >>= \case
     ExitSuccess -> return ()
-    _           -> print code
+    code        -> print code
 
 tags dir (Tags pop) = do
   ts <- countTags <$> getFiles dir Nothing []
@@ -119,10 +118,9 @@ obsolete dir (Obsolete dry id) = do
     where
       f dir True file = putStrLn $ (dir </> file) ++ " would be renamed " ++ (dir </> ('+' : file))
       f dir _    file = do
-        code <- rawSystem "mv" [dir </> file, dir </> ('+' : file)]
-        case code of
+        rawSystem "mv" [dir </> file, dir </> ('+' : file)] >>= \case
           ExitSuccess -> return ()
-          _           -> print code
+          code        -> print code
 
 -- List files with bad names.
 check :: FilePath -> Command -> IO ()
