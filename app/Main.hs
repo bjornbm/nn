@@ -158,6 +158,7 @@ check dir (Check True True) = do
   check dir (Check False True)
 
 
+-- | Save ("import") a pre-existing file, optionally with a new name.
 save dir (Save Nothing tag file) = save' dir tag file (takeFileName file)
 save dir (Save (Just name) tag file) = save' dir tag file (name <.> takeExtension file)
 
