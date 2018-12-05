@@ -70,8 +70,8 @@ main = do
 
 -- List the names of files matching the terms.
 list :: Path Abs Dir -> Command -> IO ()
-list dir (None terms) = mapM_ printFile =<< getFiles dir Nothing terms
-list dir (List _ Nothing tag terms) = mapM_ printFile =<< getFiles dir tag terms
+list dir (None terms) = mapM_ printFilename =<< getFiles dir Nothing terms
+list dir (List _ Nothing tag terms) = mapM_ printFilename =<< getFiles dir tag terms
 
 -- Apply command specified with --exec to files matching the terms.
 list dir (List _ (Just exec) tag terms) = do
@@ -113,7 +113,7 @@ edit dir (Edit id) = do
   let cmd:args = words exec
   rawSystem cmd (args ++ map fromAbsFile files) >>= \case
     ExitSuccess -> checkin files >>= \case
-        ExitSuccess -> mapM_ printFile files
+        ExitSuccess -> mapM_ printFilename files
         code        -> print code
     code        -> print code
 
@@ -133,7 +133,7 @@ obsolete dir (Obsolete dry id) = do
       run file = do
         obs <- obsfile file
         renameRCS file obs
-        printFile obs  -- Show the new filename.
+        printFilename obs  -- Show the new filename.
 
 -- List files with bad names.
 check :: Path Abs Dir -> Command -> IO ()

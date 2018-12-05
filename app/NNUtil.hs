@@ -66,7 +66,7 @@ makeID = do
   tz <- getCurrentTimeZone
   return $ formatTime undefined "%Y_%m_%d_%H%M" $ utcToLocalTime tz t
 
--- | Check in file with RCS.
+-- | Check in file with RCS. Use default description/message.
 checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
   where
     args = [ "ci"   -- Check in.
@@ -86,7 +86,8 @@ checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
            , "-m"  ++ msg   -- Log message (second+ checkins).
            ]
 
---renameRCS :: Path Abs File -> Path Abs File -> IO ()
+-- | Rename a file as well as the corresponding RCS (,v) file.
+-- The file is given a new revision documenting the old name.
 renameRCS old new = do
   renameFile old new
   rcsold <- rcsfile old
@@ -97,9 +98,11 @@ renameRCS old new = do
       rcsfile :: Path Abs File -> IO (Path Abs File)
       rcsfile file = (parent file </> [reldir|RCS|] </> filename file) -<.> (fileExtension file ++ ",v")
 
-
+-- | Get the filename (path removed) as a string.
 filename' :: Path Abs File -> String
 filename' = fromRelFile . filename
 
-printFile :: Path Abs File -> IO ()
-printFile = putStrLn . filename'
+-- | Print the filename (path removed).
+printFilename :: Path Abs File -> IO ()
+printFilename = putStrLn . filename'
+
