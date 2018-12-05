@@ -8,9 +8,9 @@ import Data.List (intercalate, sort, sortBy)
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parseAbsDir, parseRelFile
             , fromRelFile, fromAbsFile
-            , parent, filename, fileExtension
+            , parent, fileExtension
             , (</>), (<.>), (-<.>))
-import Path.IO (copyFile, renameFile)
+import Path.IO (copyFile)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (rawSystem)
@@ -126,15 +126,14 @@ obsolete dir (Obsolete dry id) = do
   where
       obsfile :: Path Abs File -> IO (Path Abs File)
       obsfile file = (parent file </>) <$> parseRelFile ('+' : filename' file)
-      obsrcsfile :: Path Abs File -> IO (Path Abs File)
-      obsrcsfile file = obsfile file >>= rcsfile
+
       dryrun file = printf "%s would be renamed %s\n" (fromAbsFile file)
                   . fromAbsFile =<< obsfile file
+
       run file = do
-        renameFile file =<< obsfile file
-        rcs <- rcsfile file
-        renameFile rcs  =<< obsrcsfile file
-        printFile =<< obsfile file  -- Show the new filename.
+        obs <- obsfile file
+        renameRCS file obs
+        printFile obs  -- Show the new filename.
 
 -- List files with bad names.
 check :: Path Abs Dir -> Command -> IO ()
@@ -213,9 +212,3 @@ processFiles' pattern = sort . filter (f . filename')
     f :: String -> Bool
     f file = not (file =~ rcsP) && (file =~ pattern)
            -- ignore RCS files.
-
-filename' :: Path Abs File -> String
-filename' = fromRelFile . filename
-
-printFile :: Path Abs File -> IO ()
-printFile = putStrLn . filename'

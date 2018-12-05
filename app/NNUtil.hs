@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module NNUtil where
 
 import Control.Applicative
@@ -9,12 +11,12 @@ import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import GHC.IO.Encoding
 import GHC.IO.Handle
-import Path ( Path (..), Abs (..), Dir (..), File (..)
-            , parent, parseRelDir, fromAbsDir
-            , filename, fileExtension, parseAbsFile, fromAbsFile
+import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
+            , parent, fromAbsDir, reldir
+            , filename, fileExtension, parseAbsFile, fromAbsFile, fromRelFile
             , (</>), (-<.>)
             )
-import Path.IO (listDir)
+import Path.IO (listDir, renameFile)
 import System.Process
 
 
@@ -65,7 +67,6 @@ makeID = do
   return $ formatTime undefined "%Y_%m_%d_%H%M" $ utcToLocalTime tz t
 
 -- | Check in file with RCS.
---checkin :: [Path Abs File] -> IO ExitCode
 checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
   where
     args = [ "ci"   -- Check in.
@@ -74,9 +75,31 @@ checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
            , "-m\"Updated by nn.\""   -- Log message (second+ checkins).
            ]
 
--- | The file name of the RCS file corresponding to a note file.
-rcsfile :: Path Abs File -> IO (Path Abs File)
-rcsfile file = do
-  rcsdir <- (parent file </>) <$> parseRelDir "RCS"
-  (rcsdir </> filename file) -<.> (fileExtension file ++ ",v")
+-- | Check in file with RCS. The checkin is forced even if the file
+-- has not been changed which ensures the log message is written.
+checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
+  where
+    args = [ "ci"   -- Check in.
+           , "-l"   -- Check out the file locked (with write permissions).
+           , "-f"   -- Force new version.
+           , "-t-" ++ msg   -- File description (first checkin).
+           , "-m"  ++ msg   -- Log message (second+ checkins).
+           ]
 
+--renameRCS :: Path Abs File -> Path Abs File -> IO ()
+renameRCS old new = do
+  renameFile old new
+  rcsold <- rcsfile old
+  rcsnew <- rcsfile new
+  renameFile rcsold rcsnew
+  checkinForceMessage ("Renamed from \"" ++ filename' old ++"\".") [new]
+    where
+      rcsfile :: Path Abs File -> IO (Path Abs File)
+      rcsfile file = (parent file </> [reldir|RCS|] </> filename file) -<.> (fileExtension file ++ ",v")
+
+
+filename' :: Path Abs File -> String
+filename' = fromRelFile . filename
+
+printFile :: Path Abs File -> IO ()
+printFile = putStrLn . filename'
