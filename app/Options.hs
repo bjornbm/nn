@@ -70,7 +70,7 @@ data Options = Options
 data Command
   = List     { all :: Bool, path :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
   | Cat      { noheaders :: Bool, id :: String }
-  | Edit     { id :: String }
+  | Edit     { editID :: Maybe String }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
   | Import   { title :: Maybe String, tag :: String, file :: String }
@@ -117,7 +117,7 @@ catOptions = Cat
   <*> argument str (help "The ID of the note to cat" <> metavar "ID")
 
 editOptions = Edit
-  <$> strOption (lsh "id" 'i' "The ID of the note to edit" <> metavar "ID")
+  <$> strOptional (lsh "id" 'i' "The ID of the note to edit. If no ID is specified the most recent note is selected." <> metavar "ID")
 
 tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")

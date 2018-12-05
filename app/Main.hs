@@ -109,8 +109,10 @@ cat dir (Cat noheaders id) = do
     --header s = s ++ "\n" ++ replicate (T.length $ T.pack s) '=' ++ "\n"
 
 edit :: Path Abs Dir -> Command -> IO ()
-edit dir (Edit id) = do
-  files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid.
+edit dir (Edit editID) = do
+  files <- case editID of
+             Just id -> getFiles dir Nothing ["name:"++id]  -- TODO not solid.
+             Nothing -> pure <$> getLast dir
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
   rawSystem cmd (args ++ map fromAbsFile files) >>= \case
@@ -210,3 +212,7 @@ processFiles pattern = sort . filter (f . filename')
     f :: String -> Bool
     f file = not (file =~ rcsP) && (file =~ pattern)
            -- ignore RCS files.
+
+getLast :: Path Abs Dir -> IO (Path Abs File)
+getLast dir = last <$> getFiles dir Nothing []
+
