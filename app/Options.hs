@@ -95,13 +95,10 @@ options = subparser
   <> commandhd "edit"         editOptions "Edit notes"
   <> commandhd "tags"         tagsOptions "Display all tags currently in use"
   <> commandhd "check"       checkOptions "Sanity check notes"
-  <> commandhd "import"     importOptions importDesc
+  <> commandhd "import"     importOptions "Import a file as a note"
   <> commandhd "new"           newOptions "Create a new note"
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   ) <|> (None <$> manyArguments "SEARCH TERMS")
-    where
-      importDesc = "Import any file as a note. "
-                ++ "If no title is specified the name of the file will be used as the note title."
 
 listOptions = List
   <$> switch      (lsh "all"  'a' "Include obsoleted notes in search [NOT IMPLEMENTED]")
@@ -127,9 +124,11 @@ checkOptions = Check
   <*> switch (lsh "references" 'r' "List notes containing bad note references")
 
 importOptions = Import
-  <$> strOptional  (lsh "title" 't' "Import with title TITLE" <> metavar "TITLE")
+  <$> strOptional  (lsh "title" 't' titleDesc <> metavar "TITLE")
   <*> argument str (metavar "TAG")
   <*> argument str (metavar "FILE")
+  where
+    titleDesc = "Import with title TITLE. If no title is specified the name of the file will be used as the note title."
 
 newOptions = New
   <$> switch (lsh "empty" 'e' "Create an empty note")
