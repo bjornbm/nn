@@ -61,7 +61,7 @@ main = do
     Cat      {} -> cat      dir command
     Tags     {} -> tags     dir command
     Check    {} -> check    dir command
-    Save     {} -> save     dir command
+    Import   {} -> importC  dir command
     New      {} -> new      dir command
     Edit     {} -> edit     dir command
     Obsolete {} -> obsolete dir command
@@ -168,18 +168,18 @@ check dir (Check True True) = do
   check dir (Check False True)
 
 
--- | Save ("import") a pre-existing file, optionally with a new name.
-save :: Path Abs Dir -> Command -> IO ()
-save dir (Save (Just name) tag file) = save' dir tag name =<< parseRelFile file
-save dir (Save Nothing tag file) = do
+-- | Import a pre-existing file, optionally with a new title.
+importC :: Path Abs Dir -> Command -> IO ()
+importC dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
+importC dir (Import Nothing tag file) = do
   file' <- parseRelFile file
-  name  <- fromRelFile <$> file' -<.> ""
-  save' dir tag name file'
+  title <- filename' <$> file' -<.> ""
+  importC' dir tag title file'
 
-save' :: Path Abs Dir -> String -> String -> Path Rel File -> IO ()
-save' dir tag name file = do
+importC' :: Path Abs Dir -> String -> String -> Path Rel File -> IO ()
+importC' dir tag title file = do
   id <- makeID
-  newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ name ++ fileExtension file
+  newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ title ++ fileExtension file
   copyFile file (dir </> newfile)
   checkin [dir </> newfile] >>= \case
     ExitSuccess -> putStrLn $ fromRelFile newfile

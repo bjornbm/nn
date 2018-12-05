@@ -99,7 +99,7 @@ renameRCS old new = do
       rcsfile file = (parent file </> [reldir|RCS|] </> filename file) -<.> (fileExtension file ++ ",v")
 
 -- | Get the filename (path removed) as a string.
-filename' :: Path Abs File -> String
+filename' :: Path a File -> String
 filename' = fromRelFile . filename
 
 -- | Print the filename (path removed).

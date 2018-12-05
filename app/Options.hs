@@ -38,7 +38,7 @@ Single note commands:
 Note creation commands:
 
     nn new (-i ID) TAG NAME
-    nn save (-i ID) -t TAG (--name NAME) FILE
+    nn import TAG (--title TITLE) FILE
     nn paste (-i ID) TAG NAME   # pbpaste | nn new TAG NAME
 
 Sanity checking commands:
@@ -73,7 +73,7 @@ data Command
   | Edit     { id :: String }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
-  | Save     { rename :: Maybe String, tag :: String, file :: String }
+  | Import   { title :: Maybe String, tag :: String, file :: String }
   | New      { empty :: Bool, tag :: String, name :: [String] }
   | None     { terms :: [String] }
   | Obsolete { dryrun :: Bool, id :: String }
@@ -95,10 +95,13 @@ options = subparser
   <> commandhd "edit"         editOptions "Edit notes"
   <> commandhd "tags"         tagsOptions "Display all tags currently in use"
   <> commandhd "check"       checkOptions "Sanity check notes"
-  <> commandhd "save"         saveOptions "Import any file as a note"
+  <> commandhd "import"     importOptions importDesc
   <> commandhd "new"           newOptions "Create a new note"
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   ) <|> (None <$> manyArguments "SEARCH TERMS")
+    where
+      importDesc = "Import any file as a note. "
+                ++ "If no title is specified the name of the file will be used as the note title."
 
 listOptions = List
   <$> switch      (lsh "all"  'a' "Include obsoleted notes in search")
@@ -122,8 +125,8 @@ checkOptions = Check
   <$> switch (lsh "names"      'n' "List badly named notes")
   <*> switch (lsh "references" 'r' "List notes containing bad note references")
 
-saveOptions = Save
-  <$> strOptional  (lsh "rename" 'r' "Save with descriptive name NAME" <> metavar "NAME")  -- TODO: should be TITLE?
+importOptions = Import
+  <$> strOptional  (lsh "title" 't' "Import with title TITLE" <> metavar "TITLE")
   <*> argument str (metavar "TAG")
   <*> argument str (metavar "FILE")
 
@@ -133,7 +136,7 @@ newOptions = New
   <*> someArguments "NAME"  -- TODO: should be TITLE?
 
 obsoleteOptions = Obsolete
-  <$> switch (long "dry-run" <> help "Show how the files would be renames, but don't actually do anything.")
+  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything.")
   <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
