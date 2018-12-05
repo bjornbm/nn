@@ -111,21 +111,24 @@ cat dir (Cat noheaders id) = do
 edit :: Path Abs Dir -> Command -> IO ()
 edit dir (Edit editID) = do
   files <- case editID of
-             Just id -> getFiles dir Nothing ["name:"++id]  -- TODO not solid.
+             Just id -> getID dir id
              Nothing -> pure <$> getLast dir
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
-  let cmd:args = words exec
-  rawSystem cmd (args ++ map fromAbsFile files) >>= \case
-    ExitSuccess -> checkin files >>= \case
-        ExitSuccess -> mapM_ printFilename files
+  if null files
+    then return ()
+    else do
+      let cmd:args = words exec
+      rawSystem cmd (args ++ map fromAbsFile files) >>= \case
+        ExitSuccess -> checkin files >>= \case
+            ExitSuccess -> mapM_ printFilename files
+            code        -> print code
         code        -> print code
-    code        -> print code
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
 obsolete :: Path Abs Dir -> Command -> IO ()
 obsolete dir (Obsolete dry id) = do
-  files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid.
+  files <- getID dir id
   mapM_ (if dry then dryrun else run) files
   where
       obsfile :: Path Abs File -> IO (Path Abs File)
@@ -216,3 +219,6 @@ processFiles pattern = sort . filter (f . filename')
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []
 
+getID :: Path Abs Dir -> String -> IO [Path Abs File]
+getID dir id = filter ((=~ ("^" ++ id)) . filename') .
+  processFiles filePattern0 <$> mdfind dir ["name:"++id]
