@@ -108,7 +108,7 @@ cat dir (Cat noheaders id) = do
 
 edit :: Path Abs Dir -> Command -> IO ()
 edit dir (Edit id) = do
-  files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
+  files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid.
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
   rawSystem cmd (args ++ map fromAbsFile files) >>= \case
@@ -121,7 +121,7 @@ edit dir (Edit id) = do
 --   TODO make sure selection works as desired.
 obsolete :: Path Abs Dir -> Command -> IO ()
 obsolete dir (Obsolete dry id) = do
-  files <- processFiles Nothing <$> mdfind dir ["name:"++id]  -- TODO not solid.
+  files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid.
   mapM_ (if dry then dryrun else run) files
   where
       obsfile :: Path Abs File -> IO (Path Abs File)
@@ -198,16 +198,12 @@ new dir (New empty tag name) = do
     code        -> print code
 
 getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
-getFiles dir Nothing    []    = processFiles Nothing    <$> mdlist dir
-getFiles dir Nothing    terms = processFiles Nothing    <$> mdfind dir terms
-getFiles dir (Just tag) terms = processFiles (Just tag) <$> mdfind dir (tag:terms)
+getFiles dir Nothing    []    = processFiles  filePattern0      <$> mdlist dir
+getFiles dir Nothing    terms = processFiles  filePattern0      <$> mdfind dir terms
+getFiles dir (Just tag) terms = processFiles (filePatternT tag) <$> mdfind dir (tag:terms)
 
-processFiles :: Maybe String -> [Path Abs File] -> [Path Abs File]
-processFiles Nothing    = processFiles'  filePattern0
-processFiles (Just tag) = processFiles' (filePatternT tag)
-
-processFiles' :: String -> [Path Abs File] -> [Path Abs File]
-processFiles' pattern = sort . filter (f . filename')
+processFiles :: String -> [Path Abs File] -> [Path Abs File]
+processFiles pattern = sort . filter (f . filename')
   where
     f :: String -> Bool
     f file = not (file =~ rcsP) && (file =~ pattern)
