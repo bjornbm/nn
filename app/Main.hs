@@ -38,7 +38,7 @@ defaultEditor = const (return "vim")
 -  nn pandoc command?
 -  nn pretty command? (| pandoc --smart --to=plain)
 +  nn obsolete command, takes -i and adds + in front of ID
--  nn path command, returns full path of matching files
++  nn list --path switch, returns full path of matching files
 -  Consistently use search term and or -i for edit, cat, etc.
 -  Allow multiple tags separated by underscore {ID}-tag1_tag2-{TITLE}
 -  nn -t tag option for searching by tag
@@ -71,10 +71,12 @@ main = do
 -- List the names of files matching the terms.
 list :: Path Abs Dir -> Command -> IO ()
 list dir (None terms) = mapM_ printFilename =<< getFiles dir Nothing terms
-list dir (List _ Nothing tag terms) = mapM_ printFilename =<< getFiles dir tag terms
+list dir (List _ path Nothing tag terms) = getFiles dir tag terms >>=
+  mapM_ (if path then putStrLn . fromAbsFile else printFilename)
+
 
 -- Apply command specified with --exec to files matching the terms.
-list dir (List _ (Just exec) tag terms) = do
+list dir (List _ _ (Just exec) tag terms) = do
   files <- getFiles dir tag terms
   let cmd:args = words exec
   rawSystem cmd (args ++ map fromAbsFile files) >>= \case

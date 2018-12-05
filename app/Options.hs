@@ -68,7 +68,7 @@ data Options = Options
 
 
 data Command
-  = List     { all :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
+  = List     { all :: Bool, path :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
   | Cat      { noheaders :: Bool, id :: String }
   | Edit     { id :: String }
   | Tags     { popularity :: Bool }
@@ -104,7 +104,8 @@ options = subparser
                 ++ "If no title is specified the name of the file will be used as the note title."
 
 listOptions = List
-  <$> switch      (lsh "all"  'a' "Include obsoleted notes in search")
+  <$> switch      (lsh "all"  'a' "Include obsoleted notes in search [NOT IMPLEMENTED]")
+  <*> switch      (lsh "path" 'p' "List full path of note files")
   <*> strOptional (lsh "exec" 'e' "Pass notes file paths as arguments to COMMAND" <> metavar "COMMAND")
   <*> strOptional (lsh "tag"  't' "Only notes tagged with TAG"                    <> metavar "TAG")
   <*> manyArguments "SEARCH TERMS"
