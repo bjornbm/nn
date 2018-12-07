@@ -9,4 +9,4 @@ done
 # Cat with pandoc to less
 alias nnplain='f() { nn cat $1 | pandoc --to=plain | less };f'
 alias nncat='nn cat'
-alias abbr='nnabbrs | grep -i'
+alias abbr="nn list --tag=abbr"
