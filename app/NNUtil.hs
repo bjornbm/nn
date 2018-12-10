@@ -5,8 +5,7 @@ module NNUtil where
 import Control.Applicative
 import Control.Arrow ((&&&))
 import Data.List
-import Data.List.Split
-import Data.Text (pack, unpack)
+import Data.Text (pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import GHC.IO.Encoding
@@ -27,11 +26,14 @@ mdfind dir args = mapM parseAbsFile . massage
   =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
-    massage = endBy "\0"  -- Null-terminated filenames.
+    massage = map unpack
+            . init . splitOn (pack "\0")  -- Null-terminated filenames.
             -- Normalize because `mdfind` does not use NFC
             -- normalisation for file names, so for example
             -- `length "Ö" == 2` in `mdfind` output..
-            . unpack . normalize NFC . pack
+            -- TODO move to only do after pattern filtering.
+            . normalize NFC
+            . pack
 
 -- | List all files in the directory except for hidden files.
 mdlist dir = snd <$> listDir dir
