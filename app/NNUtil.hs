@@ -1,13 +1,15 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module NNUtil where
 
-import Control.Applicative
+--import Control.Applicative
 import Control.Arrow ((&&&))
 import Data.List
-import Data.Text (pack, unpack, splitOn)
+import Data.Text (Text, pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
+import Data.Void
 import GHC.IO.Encoding
 import GHC.IO.Handle
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
@@ -17,6 +19,8 @@ import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             )
 import Path.IO (listDir, renameFile)
 import System.Process
+import Text.Megaparsec
+import Text.Megaparsec.Char
 
 
 -- | Find files. We use the ASCII NULL terminated paths since file
@@ -38,19 +42,61 @@ mdfind dir args = mapM parseAbsFile . massage
 -- | List all files in the directory except for hidden files.
 mdlist dir = snd <$> listDir dir
 
+type Tag = Text
+type ID = (String, String, String, String)
+type P = Parsec Void Text
 
 -- Regex patterns.
-obsP  = "^\\+?"
-idP   = "\\<[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{4}\\>"
-tagP  = "-[a-zA-Z0-9åäöÅÄÖ]+-"  -- TODO åäöÅÄÖ don't work.
-restP = ".+[^~]$"  -- Ignore unix (vim) backup files.
-hiddenP = "^\\."   -- Ignore hidden files.
-rcsP = ",v$"
-filePattern  = obsP ++ idP ++ tagP ++ restP
-filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
-filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.
-filePatternT tag = "^" ++ idP ++ taggedP tag ++ restP
-taggedP tag = "-" ++ tag ++ "-"
+obsP :: P (Maybe Char)
+obsP  = optional $ char '+'
+--idP   = "\\<[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{4}\\>"
+idP :: P ID
+idP = do
+  yyyy <- count 4 digitChar
+  sep
+  mm   <- count 2 digitChar
+  sep
+  dd   <- count 2 digitChar
+  sep
+  hhmm <- count 4 digitChar
+  return (yyyy,mm,dd,hhmm)
+  where
+    sep = char '_'
+
+tagP :: P String
+tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
+titleP :: P String
+--titleP = some printChar <* notFollowedBy (char '~') -- ".+[^~]$"  -- Ignore unix (vim) backup files.
+--titleP = some (try (char '~') <* notFollowedBy eof <|> printChar)  -- ".+[^~]$"  -- Ignore unix (vim) backup files.
+--titleP = some (try (char '~' <* notFollowedBy eof) <|> noneOf "~")  -- ".+[^~]$"  -- Ignore unix (vim) backup files.
+--titleP = some (noneOf "~" <|> try (char '~' <* notFollowedBy eof))  -- ".+[^~]$"  -- Ignore unix (vim) backup files.
+titleP = someTill anyChar (lookAhead $ try (eof    -- End of "good" file.
+                         <|> char   '~'  *> eof    -- Unix (vim) backup file.
+                         <|> string ",v" *> eof))  -- RCS file.
+bkupP :: P (Maybe Char)
+bkupP = optional $ char '~'
+hiddenP :: P Char
+hiddenP = char '.' -- "^\\."   -- Ignore hidden files.
+rcsP :: P Text
+rcsP = string ",v$"
+filePattern :: P String
+filePattern  = obsP *> idP *> tagP *> titleP <* eof
+filePattern' :: P String
+filePattern' = obsP *> idP *> tagP *> titleP <* bkupP <* eof
+filePattern0 :: P String
+filePattern0 =         idP *> tagP *> titleP <* eof
+filePatternID :: Text -> P String
+filePatternID id = string id *> tagP *> titleP <* eof
+filePatternT :: Tag -> P String
+filePatternT tag =     idP *> taggedP tag *> titleP <* eof
+  where
+    taggedP :: Tag -> P Text
+    taggedP tag = char '-' *> string tag <* char '-'
+--filePattern  = obsP ++ idP ++ tagP ++ restP
+--filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
+--filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.
+--filePatternT tag = "^" ++ idP ++ taggedP tag ++ restP
+--taggedP tag = "-" ++ tag ++ "-"
 
 -- | Extract tags from file names and count the number of uses of each tag.
 -- TODO Use regex for the extraction to make tag delimiter flexible?

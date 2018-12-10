@@ -3,7 +3,9 @@
 
 import Control.Applicative
 import System.IO.Error(catchIOError)
+import Data.Either (isLeft, isRight)
 import Data.List (intercalate, sort, sortBy)
+import Data.Text (Text, pack, unpack, splitOn)
 --import qualified Data.Text as T
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parseAbsDir, parseRelFile
@@ -15,9 +17,8 @@ import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (rawSystem)
 import NNUtil
+import Text.Megaparsec (parse)
 import Text.Printf (printf)
-
-import Text.Regex.TDFA
 
 import Options
 
@@ -147,10 +148,10 @@ check :: Path Abs Dir -> Command -> IO ()
 check dir (Check True False) = do
   files <- mdlist dir
   mapM_ putStrLn $ sort
-                 $ filter (/= ".")
-                 $ filter (/= "..")
-                 $ filter (not . (=~ hiddenP))
-                 $ filter (not . (=~ filePattern'))
+                 -- $ filter (/= ".")
+                 -- $ filter (/= "..")
+                 -- $ filter (not . (=~ hiddenP))
+                 $ filter (isLeft . parse filePattern "" . pack)
                  $ map filename' files
 
 -- List files with bad references.
@@ -207,18 +208,18 @@ new dir (New empty tag name) = do
 getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
 getFiles dir Nothing    []    = processFiles  filePattern0      <$> mdlist dir
 getFiles dir Nothing    terms = processFiles  filePattern0      <$> mdfind dir terms
-getFiles dir (Just tag) terms = processFiles (filePatternT tag) <$> mdfind dir (tag:terms)
+getFiles dir (Just tag) terms = processFiles (filePatternT $ pack tag) <$> mdfind dir (tag:terms)
 
-processFiles :: String -> [Path Abs File] -> [Path Abs File]
-processFiles pattern = sort . filter (f . filename')
+processFiles :: P String -> [Path Abs File] -> [Path Abs File]
+processFiles pattern = sort . filter (isRight . parse pattern "" . pack . filename')
   where
-    f :: String -> Bool
-    f file = not (file =~ rcsP) && (file =~ pattern)
+    -- f :: String -> Bool
+    -- f file = not (file =~ rcsP) && (file =~ pattern)
            -- ignore RCS files.
 
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []
 
 getID :: Path Abs Dir -> String -> IO [Path Abs File]
-getID dir id = filter ((=~ ("^" ++ id)) . filename') .
-  processFiles filePattern0 <$> mdfind dir ["name:"++id]
+getID dir id =  processFiles (filePatternID $ pack id) <$> mdfind dir ["name:"++id]
+

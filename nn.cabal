@@ -35,8 +35,8 @@ executable nn
                      , path-io
                      , process
                      , regex-tdfa
-                     , split
                      , optparse-applicative
+                     , megaparsec
   default-language:    Haskell2010
 
 test-suite nn-test
