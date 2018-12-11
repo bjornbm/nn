@@ -40,7 +40,7 @@ myfilter file = not (L.isSuffixOf "~"  file)   -- Vim backup file.
              && not (L.isSuffixOf ",v" file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = sort . filter (myfilter . fromRelFile . filename) . snd <$> listDir dir
+mdlist dir = sort . filter (myfilter . fromAbsFile) . snd <$> listDir dir
 
 type Tag = Text
 type ID = (String, String, String, String)
