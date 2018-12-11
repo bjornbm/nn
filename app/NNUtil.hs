@@ -66,10 +66,6 @@ idP = do
 tagP :: P String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
 titleP :: P String
---titleP = some printChar <* notFollowedBy (char '~') -- ".+[^~]$"  -- Ignore unix (vim) backup files.
---titleP = some (try (char '~') <* notFollowedBy eof <|> printChar)  -- ".+[^~]$"  -- Ignore unix (vim) backup files.
---titleP = some (try (char '~' <* notFollowedBy eof) <|> noneOf "~")  -- ".+[^~]$"  -- Ignore unix (vim) backup files.
---titleP = some (noneOf "~" <|> try (char '~' <* notFollowedBy eof))  -- ".+[^~]$"  -- Ignore unix (vim) backup files.
 titleP = someTill anyChar (lookAhead $ try (eof    -- End of "good" file.
                          <|> char   '~'  *> eof    -- Unix (vim) backup file.
                          <|> string ",v" *> eof))  -- RCS file.
@@ -80,15 +76,15 @@ hiddenP = char '.' -- "^\\."   -- Ignore hidden files.
 rcsP :: P Text
 rcsP = string ",v$"
 filePattern :: P String
-filePattern  = obsP *> idP *> tagP *> titleP <* eof
+filePattern  = obsP *> idP *> tagP *> titleP
 filePattern' :: P String
-filePattern' = obsP *> idP *> tagP *> titleP <* bkupP <* eof
+filePattern' = obsP *> idP *> tagP
 filePattern0 :: P String
-filePattern0 =         idP *> tagP *> titleP <* eof
+filePattern0 = idP *> tagP
 filePatternID :: Text -> P String
-filePatternID id = string id *> tagP *> titleP <* eof
+filePatternID id = string id *> tagP
 filePatternT :: Tag -> P String
-filePatternT tag =     idP *> taggedP tag *> titleP <* eof
+filePatternT tag = unpack <$> (idP *> taggedP tag)
   where
     taggedP :: Tag -> P Text
     taggedP tag = char '-' *> string tag <* char '-'

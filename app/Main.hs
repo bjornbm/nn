@@ -1,11 +1,12 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 import Control.Applicative
 import System.IO.Error(catchIOError)
-import Data.Either (isLeft, isRight)
+import Data.Maybe (isJust, isNothing)
 import Data.List (intercalate, sort, sortBy)
-import Data.Text (Text, pack, unpack, splitOn)
+import Data.Text (Text, pack, isSuffixOf)
 --import qualified Data.Text as T
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parseAbsDir, parseRelFile
@@ -17,7 +18,7 @@ import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (rawSystem)
 import NNUtil
-import Text.Megaparsec (parse)
+import Text.Megaparsec (parseMaybe)
 import Text.Printf (printf)
 
 import Options
@@ -151,7 +152,7 @@ check dir (Check True False) = do
                  -- $ filter (/= ".")
                  -- $ filter (/= "..")
                  -- $ filter (not . (=~ hiddenP))
-                 $ filter (isLeft . parse filePattern "" . pack)
+                 $ filter (isNothing . parseMaybe filePattern . pack)
                  $ map filename' files
 
 -- List files with bad references.
@@ -211,10 +212,13 @@ getFiles dir Nothing    terms = processFiles  filePattern0      <$> mdfind dir t
 getFiles dir (Just tag) terms = processFiles (filePatternT $ pack tag) <$> mdfind dir (tag:terms)
 
 processFiles :: P String -> [Path Abs File] -> [Path Abs File]
-processFiles pattern = sort . filter (isRight . parse pattern "" . pack . filename')
+processFiles pattern = sort . filter (f . pack . filename')
   where
-    -- f :: String -> Bool
-    -- f file = not (file =~ rcsP) && (file =~ pattern)
+    f :: Text -> Bool
+    f file = not (isSuffixOf ",v" file)  -- RCS file
+          && not (isSuffixOf "~" file)   -- Vim backup file.
+          && isJust (parseMaybe pattern file)
+
            -- ignore RCS files.
 
 getLast :: Path Abs Dir -> IO (Path Abs File)
