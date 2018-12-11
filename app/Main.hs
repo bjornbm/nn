@@ -4,8 +4,8 @@
 
 import Control.Applicative
 import System.IO.Error(catchIOError)
-import Data.Maybe (isJust, isNothing)
-import Data.List (intercalate, sort, sortBy)
+import Data.Either (isLeft, isRight)
+import Data.List (intercalate, sortBy)
 import Data.Text (Text, pack, isSuffixOf)
 --import qualified Data.Text as T
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
@@ -18,7 +18,7 @@ import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.Process (rawSystem)
 import NNUtil
-import Text.Megaparsec (parseMaybe)
+import Text.Megaparsec (parse)
 import Text.Printf (printf)
 
 import Options
@@ -148,11 +148,7 @@ obsolete dir (Obsolete dry id) = do
 check :: Path Abs Dir -> Command -> IO ()
 check dir (Check True False) = do
   files <- mdlist dir
-  mapM_ putStrLn $ sort
-                 -- $ filter (/= ".")
-                 -- $ filter (/= "..")
-                 -- $ filter (not . (=~ hiddenP))
-                 $ filter (isNothing . parseMaybe filePattern . pack)
+  mapM_ putStrLn $ filter (isLeft . parse filePatternFull "" . pack)
                  $ map filename' files
 
 -- List files with bad references.
@@ -207,19 +203,12 @@ new dir (New empty tag name) = do
     code        -> print code
 
 getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
-getFiles dir Nothing    []    = processFiles  filePattern0      <$> mdlist dir
-getFiles dir Nothing    terms = processFiles  filePattern0      <$> mdfind dir terms
+getFiles dir Nothing    []    = processFiles  filePattern              <$> mdlist dir
+getFiles dir Nothing    terms = processFiles  filePattern              <$> mdfind dir terms
 getFiles dir (Just tag) terms = processFiles (filePatternT $ pack tag) <$> mdfind dir (tag:terms)
 
 processFiles :: P String -> [Path Abs File] -> [Path Abs File]
-processFiles pattern = sort . filter (f . pack . filename')
-  where
-    f :: Text -> Bool
-    f file = not (isSuffixOf ",v" file)  -- RCS file
-          && not (isSuffixOf "~" file)   -- Vim backup file.
-          && isJust (parseMaybe pattern file)
-
-           -- ignore RCS files.
+processFiles pattern = filter (isRight . parse pattern "" . pack . filename')
 
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []

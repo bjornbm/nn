@@ -5,8 +5,8 @@ module NNUtil where
 
 --import Control.Applicative
 import Control.Arrow ((&&&))
-import Data.List
-import Data.Text (Text, pack, unpack, splitOn)
+import Data.List (filter, group, init, sort)
+import Data.Text (Text, pack, unpack, splitOn, isSuffixOf)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
@@ -31,16 +31,18 @@ mdfind dir args = mapM parseAbsFile . massage
   where
     stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
     massage = map unpack
-            . init . splitOn (pack "\0")  -- Null-terminated filenames.
+            . sort
             -- Normalize because `mdfind` does not use NFC
             -- normalisation for file names, so for example
             -- `length "Ö" == 2` in `mdfind` output..
-            -- TODO move to only do after pattern filtering.
-            . normalize NFC
+            . map (normalize NFC)
+            . filter (not . isSuffixOf "~")   -- Vim backup file.
+            . filter (not . isSuffixOf ",v")  -- RCS file.
+            . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = snd <$> listDir dir
+mdlist dir = sort . snd <$> listDir dir
 
 type Tag = Text
 type ID = (String, String, String, String)
@@ -49,7 +51,7 @@ type P = Parsec Void Text
 -- Regex patterns.
 obsP :: P (Maybe Char)
 obsP  = optional $ char '+'
---idP   = "\\<[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{4}\\>"
+
 idP :: P ID
 idP = do
   yyyy <- count 4 digitChar
@@ -65,22 +67,18 @@ idP = do
 
 tagP :: P String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
+
 titleP :: P String
 titleP = someTill anyChar (lookAhead $ try (eof    -- End of "good" file.
                          <|> char   '~'  *> eof    -- Unix (vim) backup file.
                          <|> string ",v" *> eof))  -- RCS file.
-bkupP :: P (Maybe Char)
-bkupP = optional $ char '~'
-hiddenP :: P Char
-hiddenP = char '.' -- "^\\."   -- Ignore hidden files.
-rcsP :: P Text
-rcsP = string ",v$"
+
+filePatternFull :: P String
+filePatternFull = obsP *> idP *> tagP *> titleP <* eof
+filePatternO :: P String
+filePatternO = obsP *> idP *> tagP
 filePattern :: P String
-filePattern  = obsP *> idP *> tagP *> titleP
-filePattern' :: P String
-filePattern' = obsP *> idP *> tagP
-filePattern0 :: P String
-filePattern0 = idP *> tagP
+filePattern = idP *> tagP
 filePatternID :: Text -> P String
 filePatternID id = string id *> tagP
 filePatternT :: Tag -> P String
@@ -88,11 +86,6 @@ filePatternT tag = unpack <$> (idP *> taggedP tag)
   where
     taggedP :: Tag -> P Text
     taggedP tag = char '-' *> string tag <* char '-'
---filePattern  = obsP ++ idP ++ tagP ++ restP
---filePattern' = obsP ++ idP ++ tagP  -- Allows backup files to match.
---filePattern0 = "^" ++ idP ++ tagP ++ restP  -- Don't match obsolete files.
---filePatternT tag = "^" ++ idP ++ taggedP tag ++ restP
---taggedP tag = "-" ++ tag ++ "-"
 
 -- | Extract tags from file names and count the number of uses of each tag.
 -- TODO Use regex for the extraction to make tag delimiter flexible?
