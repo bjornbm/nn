@@ -26,12 +26,11 @@ import Text.Megaparsec.Char
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
 mdfind :: Path Abs Dir -> [String] -> IO [Path Abs File]
-mdfind dir args = mapM parseAbsFile . massage
+mdfind dir args = fmap sort . mapM parseAbsFile . massage
   =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
     massage = map unpack
-            . sort
             -- Normalize because `mdfind` does not use NFC
             -- normalisation for file names, so for example
             -- `length "Ö" == 2` in `mdfind` output..
