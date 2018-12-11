@@ -5,8 +5,8 @@
 import Control.Applicative
 import Data.Either (isLeft, isRight)
 import Data.List (intercalate, sortBy)
-import Data.Text (Text, pack, isSuffixOf)
---import qualified Data.Text as T
+import Data.Text (Text, pack, unpack, isSuffixOf)
+import qualified Data.Text.IO as T (putStrLn)
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parseAbsDir, parseRelFile
             , fromRelFile, fromAbsFile
@@ -96,10 +96,10 @@ tags dir (Tags pop) = do
 cat :: Path Abs Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
   files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
-  contents <- mapM (readFile . fromAbsFile) files
+  contents <- mapM (readFile . fromAbsFile) files  -- TODO file handle leak!
   if noheaders
      then putStr $ intercalate "\n" contents
-     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header (filename' f) ++ c) files contents
+     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header (unpack $ filename' f) ++ c) files contents
   where
     header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
                          -- TODO the above doesn't work properly for åäö filenames.
@@ -134,7 +134,7 @@ obsolete dir (Obsolete dry id) = do
   mapM_ (if dry then dryrun else run) files
   where
       obsfile :: Path Abs File -> IO (Path Abs File)
-      obsfile file = (parent file </>) <$> parseRelFile ('+' : filename' file)
+      obsfile file = (parent file </>) <$> parseRelFile ('+' : unpack (filename' file))
 
       dryrun file = printf "%s would be renamed %s\n" (fromAbsFile file)
                   . fromAbsFile =<< obsfile file
@@ -148,7 +148,7 @@ obsolete dir (Obsolete dry id) = do
 check :: Path Abs Dir -> Command -> IO ()
 check dir (Check True False) = do
   files <- mdlist dir
-  mapM_ putStrLn $ filter (isLeft . parse filePatternFull "" . pack)
+  mapM_ T.putStrLn $ filter (isLeft . parse filePatternFull "")
                  $ map filename' files
 
 -- List files with bad references.
@@ -178,7 +178,7 @@ importC :: Path Abs Dir -> Command -> IO ()
 importC dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
 importC dir (Import Nothing tag file) = do
   file' <- parseRelFile file
-  title <- filename' <$> file' -<.> ""
+  title <- unpack . filename' <$> file' -<.> ""
   importC' dir tag title file'
 
 importC' :: Path Abs Dir -> String -> String -> Path Rel File -> IO ()
@@ -208,7 +208,7 @@ getFiles dir Nothing    terms = processFiles  filePattern              <$> mdfin
 getFiles dir (Just tag) terms = processFiles (filePatternT $ pack tag) <$> mdfind dir (tag:terms)
 
 processFiles :: Parser String -> [Path Abs File] -> [Path Abs File]
-processFiles pattern = filter (isRight . parse pattern "" . pack . filename')
+processFiles pattern = filter (isRight . parse pattern "" . filename')
 
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []

@@ -5,7 +5,10 @@ module NNUtil where
 
 import Control.Arrow ((&&&))
 import Data.List (filter, group, init, sort)
+import qualified Data.List as L
+import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
+import qualified Data.Text.IO as T (putStrLn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
@@ -28,17 +31,16 @@ mdfind dir args = fmap sort . mapM parseAbsFile . massage
   where
     stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
     massage = map unpack
-            -- Normalize because `mdfind` does not use NFC
-            -- normalisation for file names, so for example
-            -- `length "Ö" == 2` in `mdfind` output..
-            . map (normalize NFC)
             . filter (not . isSuffixOf "~")   -- Vim backup file.
             . filter (not . isSuffixOf ",v")  -- RCS file.
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
+myfilter file = not (isSuffixOf "~"  file)   -- Vim backup file.
+             && not (isSuffixOf ",v" file)  -- RCS file.
+
 -- | List all files in the directory except for hidden files.
-mdlist dir = sort . snd <$> listDir dir
+mdlist dir = sort . filter (myfilter . filename') . snd <$> listDir dir
 
 type Tag = Text
 type ID = (String, String, String, String)
@@ -110,8 +112,8 @@ checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
     args = [ "ci"   -- Check in.
            , "-l"   -- Check out the file locked (with write permissions).
            , "-f"   -- Force new version.
-           , "-t-" ++ msg   -- File description (first checkin).
-           , "-m"  ++ msg   -- Log message (second+ checkins).
+           , "-t-" ++ unpack msg   -- File description (first checkin).
+           , "-m"  ++ unpack msg   -- Log message (second+ checkins).
            ]
 
 -- | Rename a file as well as the corresponding RCS (,v) file.
@@ -121,16 +123,20 @@ renameRCS old new = do
   rcsold <- rcsfile old
   rcsnew <- rcsfile new
   renameFile rcsold rcsnew
-  checkinForceMessage ("Renamed from \"" ++ filename' old ++"\".") [new]
+  checkinForceMessage ("Renamed from \"" <> filename' old <> "\".") [new]
     where
       rcsfile :: Path Abs File -> IO (Path Abs File)
       rcsfile file = (parent file </> [reldir|RCS|] </> filename file) -<.> (fileExtension file ++ ",v")
 
--- | Get the filename (path removed) as a string.
-filename' :: Path a File -> String
-filename' = fromRelFile . filename
+-- | Get the filename (path removed) as @Text@.
+  --
+  -- The @Text@ is normalized because `mdfind` and @listDir@ does not use NFC
+  -- normalisation for file names, so for example
+  -- `length "Ö" == 2` in `mdfind` output.
+filename' :: Path a File -> Text
+filename' = normalize NFC . pack . fromRelFile . filename
 
 -- | Print the filename (path removed).
 printFilename :: Path Abs File -> IO ()
-printFilename = putStrLn . filename'
+printFilename = T.putStrLn . filename'
 
