@@ -52,17 +52,12 @@ obsP :: P (Maybe Char)
 obsP  = optional $ char '+'
 
 idP :: P ID
-idP = do
-  yyyy <- count 4 digitChar
-  sep
-  mm   <- count 2 digitChar
-  sep
-  dd   <- count 2 digitChar
-  sep
-  hhmm <- count 4 digitChar
+idP = let sep = char '_' in do
+  yyyy <-        count 4 digitChar
+  mm   <- sep *> count 2 digitChar
+  dd   <- sep *> count 2 digitChar
+  hhmm <- sep *> count 4 digitChar
   return (yyyy,mm,dd,hhmm)
-  where
-    sep = char '_'
 
 tagP :: P String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
