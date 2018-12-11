@@ -55,9 +55,8 @@ Sanity checking commands:
 module Options where
 
 
-import Options.Applicative
 import Data.Semigroup ((<>))
---import Prelude hiding (all)
+import Options.Applicative
 
 
 data Options = Options

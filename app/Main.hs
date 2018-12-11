@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Applicative
-import System.IO.Error(catchIOError)
 import Data.Either (isLeft, isRight)
 import Data.List (intercalate, sortBy)
 import Data.Text (Text, pack, isSuffixOf)
@@ -16,11 +15,12 @@ import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
 import Path.IO (copyFile)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
+import System.IO.Error (catchIOError)
 import System.Process (rawSystem)
-import NNUtil
 import Text.Megaparsec (parse)
 import Text.Printf (printf)
 
+import NNUtil
 import Options
 
 
@@ -207,7 +207,7 @@ getFiles dir Nothing    []    = processFiles  filePattern              <$> mdlis
 getFiles dir Nothing    terms = processFiles  filePattern              <$> mdfind dir terms
 getFiles dir (Just tag) terms = processFiles (filePatternT $ pack tag) <$> mdfind dir (tag:terms)
 
-processFiles :: P String -> [Path Abs File] -> [Path Abs File]
+processFiles :: Parser String -> [Path Abs File] -> [Path Abs File]
 processFiles pattern = filter (isRight . parse pattern "" . pack . filename')
 
 getLast :: Path Abs Dir -> IO (Path Abs File)

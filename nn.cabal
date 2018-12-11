@@ -26,17 +26,14 @@ executable nn
                      , Options
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-                     , text
-                     , unicode-transforms
-                     , time
-                     , directory
-                     , filepath
+                     , megaparsec
+                     , optparse-applicative
                      , path
                      , path-io
                      , process
-                     , regex-tdfa
-                     , optparse-applicative
-                     , megaparsec
+                     , text
+                     , time
+                     , unicode-transforms
   default-language:    Haskell2010
 
 test-suite nn-test

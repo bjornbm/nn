@@ -3,15 +3,12 @@
 
 module NNUtil where
 
---import Control.Applicative
 import Control.Arrow ((&&&))
 import Data.List (filter, group, init, sort)
-import Data.Text (Text, pack, unpack, splitOn, isSuffixOf)
+import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
-import GHC.IO.Encoding
-import GHC.IO.Handle
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parent, fromAbsDir, reldir
             , filename, fileExtension, parseAbsFile, fromAbsFile, fromRelFile
@@ -45,13 +42,13 @@ mdlist dir = sort . snd <$> listDir dir
 
 type Tag = Text
 type ID = (String, String, String, String)
-type P = Parsec Void Text
+type Parser = Parsec Void Text
 
 -- Regex patterns.
-obsP :: P (Maybe Char)
+obsP :: Parser (Maybe Char)
 obsP  = optional $ char '+'
 
-idP :: P ID
+idP :: Parser ID
 idP = let sep = char '_' in do
   yyyy <-        count 4 digitChar
   mm   <- sep *> count 2 digitChar
@@ -59,26 +56,26 @@ idP = let sep = char '_' in do
   hhmm <- sep *> count 4 digitChar
   return (yyyy,mm,dd,hhmm)
 
-tagP :: P String
+tagP :: Parser String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
 
-titleP :: P String
+titleP :: Parser String
 titleP = someTill anyChar (lookAhead $ try (eof    -- End of "good" file.
                          <|> char   '~'  *> eof    -- Unix (vim) backup file.
                          <|> string ",v" *> eof))  -- RCS file.
 
-filePatternFull :: P String
+filePatternFull :: Parser String
 filePatternFull = obsP *> idP *> tagP *> titleP <* eof
-filePatternO :: P String
+filePatternO :: Parser String
 filePatternO = obsP *> idP *> tagP
-filePattern :: P String
+filePattern :: Parser String
 filePattern = idP *> tagP
-filePatternID :: Text -> P String
+filePatternID :: Text -> Parser String
 filePatternID id = string id *> tagP
-filePatternT :: Tag -> P String
+filePatternT :: Tag -> Parser String
 filePatternT tag = unpack <$> (idP *> taggedP tag)
   where
-    taggedP :: Tag -> P Text
+    taggedP :: Tag -> Parser Text
     taggedP tag = char '-' *> string tag <* char '-'
 
 -- | Extract tags from file names and count the number of uses of each tag.
