@@ -4,9 +4,11 @@
 
 import Control.Applicative
 import Data.Either (isLeft, isRight)
-import Data.List (intercalate, sortBy)
+import Data.List (sortBy)
+import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
-import qualified Data.Text.IO as T (putStrLn)
+import qualified Data.Text as T (intercalate, length, replicate)
+import qualified Data.Text.IO as T (putStrLn, readFile)
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parseAbsDir, parseRelFile
             , fromRelFile, fromAbsFile
@@ -96,19 +98,13 @@ tags dir (Tags pop) = do
 cat :: Path Abs Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
   files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
-  contents <- mapM (readFile . fromAbsFile) files  -- TODO file handle leak!
+  contents <- mapM (T.readFile . fromAbsFile) files
   if noheaders
-     then putStr $ intercalate "\n" contents
-     else putStr $ intercalate "\n\n\n" $ zipWith (\f c -> header (unpack $ filename' f) ++ c) files contents
+     then T.putStrLn $ T.intercalate "\n" contents
+     else T.putStrLn $ T.intercalate "\n\n\n" $ zipWith (\f c -> header (filename' f) <> c) files contents
   where
-    header s = s ++ "\n" ++ replicate (length s) '=' ++ "\n"
-                         -- TODO the above doesn't work properly for åäö filenames.
-                         -- Desperate variation below using Text won't fix it.
-                         -- `mdfind` uses a bizarre output encoding that is not
-                         -- the same as for example that used by `ls` (although
-                         -- visually and from a file system point of view it
-                         -- appears to be equivalent).
-    --header s = s ++ "\n" ++ replicate (T.length $ T.pack s) '=' ++ "\n"
+    header :: Text -> Text
+    header s = s <> "\n" <> T.replicate (T.length s) "=" <> "\n"
 
 edit :: Path Abs Dir -> Command -> IO ()
 edit dir (Edit editID) = do
