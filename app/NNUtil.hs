@@ -81,10 +81,9 @@ filePatternT tag = unpack <$> (idP *> taggedP tag)
     taggedP tag = char '-' *> string tag <* char '-'
 
 -- | Extract tags from file names and count the number of uses of each tag.
--- TODO Use regex for the extraction to make tag delimiter flexible?
+-- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
 countTags :: [Path Abs File] -> [(Int, String)]
-countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-'))
-          . map fromAbsFile
+countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-') . unpack . filename')
   where f = map (length &&& head)
   -- where f xs = zip (map length xs) (map head xs)
 
