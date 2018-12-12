@@ -4,7 +4,7 @@
 module NNUtil where
 
 import Control.Arrow ((&&&))
-import Data.List (filter, group, init, sort)
+import Data.List (filter, group, init, sort, sortOn)
 import qualified Data.List as L
 import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
@@ -26,7 +26,7 @@ import Text.Megaparsec.Char
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
 mdfind :: Path Abs Dir -> [String] -> IO [Path Abs File]
-mdfind dir args = fmap sort . mapM parseAbsFile . massage
+mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
   =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
@@ -40,7 +40,7 @@ myfilter file = not (L.isSuffixOf "~"  file)   -- Vim backup file.
              && not (L.isSuffixOf ",v" file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = sort . filter (myfilter . fromAbsFile) . snd <$> listDir dir
+mdlist dir = sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir dir
 
 type Tag = Text
 type ID = (String, String, String, String)
