@@ -31,7 +31,6 @@ executable nn
                      , path
                      , path-io
                      , process
-                     , split
                      , text
                      , time
                      , unicode-transforms

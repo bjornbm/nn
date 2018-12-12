@@ -4,7 +4,7 @@
 
 import Control.Applicative
 import Data.Either (isLeft, isRight)
-import Data.List (sortBy)
+import Data.List (sort)
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
 import qualified Data.Text as T (intercalate, length, replicate)
@@ -90,10 +90,8 @@ list dir (List _ _ (Just exec) tag terms) = do
 tags :: Path Abs Dir -> Command -> IO ()
 tags dir (Tags pop) = do
   ts <- countTags <$> getFiles dir Nothing []
-  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverseSort ts
+  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
          else mapM_ (putStrLn . snd) ts
-  where
-    reverseSort = sortBy (flip compare)
 
 cat :: Path Abs Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
