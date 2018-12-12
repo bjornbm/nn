@@ -62,9 +62,9 @@ tagP :: Parser String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
 
 titleP :: Parser String
-titleP = someTill anyChar (lookAhead $ try (eof    -- End of "good" file.
-                         <|> char   '~'  *> eof    -- Unix (vim) backup file.
-                         <|> string ",v" *> eof))  -- RCS file.
+titleP = someTill anySingle (lookAhead $ try (eof    -- End of "good" file.
+                           <|> char   '~'  *> eof    -- Unix (vim) backup file.
+                           <|> string ",v" *> eof))  -- RCS file.
 
 filePatternFull :: Parser String
 filePatternFull = obsP *> idP *> tagP *> titleP <* eof
