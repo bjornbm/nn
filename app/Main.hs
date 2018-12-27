@@ -188,9 +188,10 @@ new :: Path Abs Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
   newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ unwords name ++ ".txt"
-  cmd <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
+  exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
-  rawSystem cmd [fromAbsFile (dir </> newfile)] >>= \case
+  let cmd:args = words exec
+  rawSystem cmd (args ++ [fromAbsFile (dir </> newfile)]) >>= \case
     ExitSuccess -> checkin [dir </> newfile] >>= \case
       ExitSuccess -> putStrLn $ fromRelFile newfile
       code        -> print code
