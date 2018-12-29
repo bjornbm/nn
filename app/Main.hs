@@ -26,7 +26,7 @@ import NNUtil
 import Options
 
 
-defaultEditor = const (return "vim")
+defaultEditor = const (return "vi")
 
 {- TODO:
 -  Consistent terminology (file or note?)
