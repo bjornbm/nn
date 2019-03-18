@@ -232,20 +232,20 @@ new dir (New empty tag name) = do
     code        -> print code
 
 getFiles :: Path Abs Dir -> Maybe Tag -> [String] -> IO [Path Abs File]
-getFiles dir Nothing    []    = processFiles notObsolete noteParser <$> mdlist dir
-getFiles dir Nothing    terms = processFiles notObsolete noteParser <$> mdfind dir terms
-getFiles dir (Just tag) terms = processFiles (f tag)     noteParser <$> mdfind dir (tag:terms)
+getFiles dir Nothing    []    = processFiles notObsolete <$> mdlist dir
+getFiles dir Nothing    terms = processFiles notObsolete <$> mdfind dir terms
+getFiles dir (Just tag) terms = processFiles (f tag)     <$> mdfind dir (tag:terms)
   where
     f tag note = notObsolete note && hasTag tag note
 
-processFiles :: (Note -> Bool) -> Parser Note -> [Path Abs File] -> [Path Abs File]
-processFiles f pattern = filter (fromRight False . fmap f . parse pattern "" . filename')
+processFiles :: (Note -> Bool) -> [Path Abs File] -> [Path Abs File]
+processFiles f = filter (fromRight False . fmap f . parse noteParser "" . filename')
 
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []
 
 -- TODO getFile should return a single file like getLast. (What if two files have same ID?
 getFile :: Path Abs Dir -> String -> IO [Path Abs File]
-getFile dir id = processFiles f noteParser <$> mdfind dir ["name:"++id]
+getFile dir id = processFiles f <$> mdfind dir ["name:"++id]
   where
     f = hasID (ID $ parts id)
