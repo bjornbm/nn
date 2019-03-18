@@ -134,66 +134,35 @@ editNotes dir notes = do
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
 obsolete :: Dir -> Command -> IO ()
-obsolete dir (Obsolete dry id) = do
-  notes <- getNote dir id
-  mapM_ (if dry then dryrun dir else run dir) notes
+obsolete dir (Obsolete dry id) = getNote dir id >>= modifyNotes dry f dir
   where
-      obsnote :: Note -> Note
-      obsnote (Note _ i t n e) = Note True i t n e
-
-      dryrun :: Dir -> Note -> IO ()
-      dryrun dir note = printf "%s would be renamed %s\n"
-                        (notePath dir note)
-                        (notePath dir $ obsnote note)
-
-      run :: Dir -> Note -> IO ()
-      run dir note = do
-        let obs = obsnote note
-        renameRCS dir note obs
-        printFilename obs  -- Show the new filename.
+    f (Note _ i t n e) = Note True i t n e
 
 -- | Rename file.
 --   TODO make sure selection works as desired.
 rename :: Dir -> Command -> IO ()
-rename dir (Rename dry id name) = do
-  notes <- getNote dir id
-  mapM_ (if dry then dryrun dir else run dir) notes
+rename dir (Rename dry id name) = getNote dir id >>= modifyNotes dry f dir
   where
-      newnote :: Note -> Note
-      newnote (Note o i t n e) = Note o i t (unwords name) e
-
-      dryrun :: Dir -> Note -> IO ()
-      dryrun dir note = printf "%s would be renamed %s\n"
-                        (notePath dir note)
-                        (notePath dir $ newnote note)
-
-      run :: Dir -> Note -> IO ()
-      run dir note = do
-        let new = newnote note
-        renameRCS dir note new
-        printFilename new  -- Show the new filename.
+    f (Note o i t n e) = Note o i t (unwords name) e
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
 retag :: Dir -> Command -> IO ()
-retag dir (Retag dry id tag) = do
-  notes <- getNote dir id
-  mapM_ (if dry then dryrun dir else run dir) notes
+retag dir (Retag dry id tag) = getNote dir id >>= modifyNotes dry f dir
   where
-      newnote :: Note -> Note
-      newnote (Note o i _ n e) = Note o i tag n e
+    f (Note o i _ n e) = Note o i tag n e
 
-      dryrun :: Dir -> Note -> IO ()
-      dryrun dir note = printf "%s would be renamed %s\n"
-                        (notePath dir note)
-                        (notePath dir $ newnote note)
-
-      run :: Dir -> Note -> IO ()
-      run dir note = do
-        let new = newnote note
-        renameRCS dir note new
-        printFilename new  -- Show the new filename.
-
+-- | Apply function to the given notes, effectively changing their
+  -- filenames. If the dry-run flag is set the renaming is shown but
+  -- not performed.
+modifyNotes :: Bool -> (Note -> Note) -> Dir -> [Note] -> IO ()
+modifyNotes True f dir = mapM_  -- dry-run
+  (\note -> printf "%s would be renamed %s\n"
+                         (notePath dir note)
+                         (notePath dir $ f note))
+modifyNotes False f dir = mapM_  -- Full run
+  (\note -> renameRCS dir note (f note)
+         >> printFilename (f note))  -- Show the new filename.
 
 -- List files with bad names.
 check :: Dir -> Command -> IO ()
