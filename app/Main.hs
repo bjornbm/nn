@@ -212,25 +212,22 @@ importC' :: Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
   id <- makeID
   let note = Note False id tag title (fileExtension file)
-  newfile <- noteRelFile note
-  d <- parseAbsDir dir
-  copyFile file (d </> newfile)
-  checkin [d </> newfile] >>= \case
-    ExitSuccess -> putStrLn $ fromRelFile newfile
+  newfile <- noteAbsFile dir note
+  copyFile file newfile
+  checkinNote dir note >>= \case
+    ExitSuccess -> printFilename note
     code        -> print code
 
 new :: Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
   let note = Note False id tag (unwords name) "txt"
-  newfile <- noteRelFile note
-  d <- parseAbsDir dir
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
-  rawSystem cmd (args ++ [fromAbsFile (d </> newfile)]) >>= \case
-    ExitSuccess -> checkin [d </> newfile] >>= \case
-      ExitSuccess -> putStrLn $ fromRelFile newfile
+  rawSystem cmd (args ++ [notePath dir note]) >>= \case
+    ExitSuccess -> checkinNote dir note >>= \case
+      ExitSuccess -> printFilename note
       code        -> print code
     code        -> print code
 

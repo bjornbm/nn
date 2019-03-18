@@ -160,18 +160,9 @@ makeID = localTimeToID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrent
 localTimeToID :: LocalTime -> ID
 localTimeToID t = ID $ map (\fmt -> formatTime undefined fmt t) ["%Y", "%m", "%d", "%H%M"]
 
--- | Check in file with RCS. Use default description/message.
---checkin :: [Path Abs File] -> IO ExitCode
-checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
-  where
-    args = [ "ci"   -- Check in.
-           , "-l"   -- Check out the file locked (with write permissions).
-           , "-t-\"Created by nn.\""  -- File description (first checkin).
-           , "-m\"Updated by nn.\""   -- Log message (second+ checkins).
-           ]
 
--- | Check in file with RCS. Use default description/message.
---checkin :: [Path Abs File] -> IO ExitCode
+-- | Check in notes with RCS. Use default description/message.
+--checkinNotes :: Dir -> [Note] -> IO ExitCode
 checkinNotes dir notes = rawSystem "rcs" (args ++ map (notePath dir) notes)
   where
     args = [ "ci"   -- Check in.
@@ -179,6 +170,10 @@ checkinNotes dir notes = rawSystem "rcs" (args ++ map (notePath dir) notes)
            , "-t-\"Created by nn.\""  -- File description (first checkin).
            , "-m\"Updated by nn.\""   -- Log message (second+ checkins).
            ]
+
+-- | Check in note with RCS. Use default description/message.
+--checkinNote :: Dir -> Note -> IO ExitCode
+checkinNote dir note = checkinNotes dir [note]
 
 -- | Check in file with RCS. The checkin is forced even if the file
 -- has not been changed which ensures the log message is written.
