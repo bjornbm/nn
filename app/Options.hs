@@ -69,7 +69,7 @@ data Options = Options
 data Command
   = List     { all :: Bool, path :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
   | Cat      { noheaders :: Bool, id :: String }
-  | Edit     { editID :: Maybe String }
+  | Edit     { editID :: Maybe String, terms :: [String] }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
   | Import   { title :: Maybe String, tag :: String, file :: String }
@@ -92,7 +92,7 @@ someArguments = some . argument str . metavar
 options = subparser
   (  commandhd "list"         listOptions "List notes"
   <> commandhd "cat"           catOptions "Concatenate notes to STDOUT"
-  <> commandhd "edit"         editOptions "Edit notes"
+  <> commandhd "edit"         editOptions "Edit notes selected by ID or search terms"
   <> commandhd "tags"         tagsOptions "Display all tags currently in use"
   <> commandhd "check"       checkOptions "Sanity check notes"
   <> commandhd "import"     importOptions "Import a file as a note"
@@ -115,7 +115,8 @@ catOptions = Cat
   <*> argument str (help "The ID of the note to cat" <> metavar "ID")
 
 editOptions = Edit
-  <$> strOptional (lsh "id" 'i' "The ID of the note to edit. If no ID is specified the most recent note is selected." <> metavar "ID")
+  <$> strOptional (lsh "id" 'i' "The ID of the note to edit. If no ID or terms are specified the most recent note is selected." <> metavar "ID")
+  <*> manyArguments "SEARCH TERMS"
 
 tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")

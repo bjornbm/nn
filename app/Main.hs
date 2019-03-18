@@ -105,11 +105,19 @@ cat dir (Cat noheaders id) = do
     header :: Text -> Text
     header s = s <> "\n" <> T.replicate (T.length s) "=" <> "\n"
 
+-- | Edit either one file selected by ID or all files matching search terms.
+  -- If neither ID nor search terms are specified edit the last file.
+  -- Specifying both ID and serch terms is a user error.
+  --
+  -- TODO Make this type of file selection default for most actions?
 edit :: Path Abs Dir -> Command -> IO ()
-edit dir (Edit editID) = do
-  files <- case editID of
-             Just id -> getFile dir id
-             Nothing -> pure <$> getLast dir
+edit dir (Edit (Just id) [])    = editFiles =<< getFile dir id
+edit dir (Edit Nothing   [])    = editFiles =<< pure <$> getLast dir
+edit dir (Edit Nothing   terms) = editFiles =<< getFiles dir Nothing terms
+edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
+
+editFiles :: [Path Abs File] -> IO ()
+editFiles files = do
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   if null files
     then return ()
@@ -223,7 +231,7 @@ new dir (New empty tag name) = do
       code        -> print code
     code        -> print code
 
-getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
+getFiles :: Path Abs Dir -> Maybe Tag -> [String] -> IO [Path Abs File]
 getFiles dir Nothing    []    = processFiles notObsolete noteParser <$> mdlist dir
 getFiles dir Nothing    terms = processFiles notObsolete noteParser <$> mdfind dir terms
 getFiles dir (Just tag) terms = processFiles (f tag)     noteParser <$> mdfind dir (tag:terms)
@@ -236,6 +244,7 @@ processFiles f pattern = filter (fromRight False . fmap f . parse pattern "" . f
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []
 
+-- TODO getFile should return a single file like getLast. (What if two files have same ID?
 getFile :: Path Abs Dir -> String -> IO [Path Abs File]
 getFile dir id = processFiles f noteParser <$> mdfind dir ["name:"++id]
   where
