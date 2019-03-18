@@ -81,9 +81,9 @@ showID (ID parts) = L.intercalate "_" parts
 
 -- | Create the filename of a note.
   --
-  -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt")
+  -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" ".txt")
   -- "2019_03_18_1009-note-The title.txt"
-  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" "md")
+  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" ".md")
   -- "+2019_03_18_1009-note-The title.md"
   -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title.md" "")
   -- "+2019_03_18_1009-note-The title.md"
@@ -95,7 +95,7 @@ noteFilenameT (Note obs id tag title ext)
   = (normalize NFC . pack) $
   (if obs then "+" else "")
   <> showID id <> "-" <> tag <> "-" <> title  -- The interesting parts
-  <> (if null ext then "" else "." <> ext)
+  <> (if null ext then "" else ext)
 
 notePath dir note = dir <> "/" <> noteFilename note
 
