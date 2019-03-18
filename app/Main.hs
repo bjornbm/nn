@@ -108,7 +108,7 @@ cat dir (Cat noheaders id) = do
 edit :: Path Abs Dir -> Command -> IO ()
 edit dir (Edit editID) = do
   files <- case editID of
-             Just id -> getID dir id
+             Just id -> getFile dir id
              Nothing -> pure <$> getLast dir
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
   if null files
@@ -125,7 +125,7 @@ edit dir (Edit editID) = do
 --   TODO make sure selection works as desired.
 obsolete :: Path Abs Dir -> Command -> IO ()
 obsolete dir (Obsolete dry id) = do
-  files <- getID dir id
+  files <- getFile dir id
   mapM_ (if dry then dryrun else run) files
   where
       obsfile :: Path Abs File -> IO (Path Abs File)
@@ -144,7 +144,7 @@ obsolete dir (Obsolete dry id) = do
 rename :: Path Abs Dir -> Command -> IO ()
 rename dir (Rename dry id name) = do
   error "renaming is not yet implemented";
-  files <- getID dir id
+  files <- getFile dir id
   mapM_ (if dry then dryrun else run) files
   where
       -- TODO modify this code which is copied from `obsolete`.
@@ -236,7 +236,7 @@ processFiles f pattern = filter (fromRight False . fmap f . parse pattern "" . f
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []
 
-getID :: Path Abs Dir -> String -> IO [Path Abs File]
-getID dir id =  processFiles f noteParser <$> mdfind dir ["name:"++id]
+getFile :: Path Abs Dir -> String -> IO [Path Abs File]
+getFile dir id = processFiles f noteParser <$> mdfind dir ["name:"++id]
   where
     f = hasID (ID $ parts id)
