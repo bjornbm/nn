@@ -4,7 +4,8 @@
 
 import Control.Applicative
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
-import Data.List (sort)
+import Data.List (sortOn)
+import Data.Ord (Down (Down))
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
 import qualified Data.Text as T (intercalate, length, replicate)
@@ -91,7 +92,7 @@ list dir (List _ _ (Just exec) tag terms) = do
 tags :: Dir -> Command -> IO ()
 tags dir (Tags pop) = do
   ts <- countTags <$> getNotes dir Nothing []
-  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
+  if pop then mapM_ (uncurry (printf "%3d %s\n")) $ sortOn Down ts
          else mapM_ (putStrLn . snd) ts
 
 cat :: Dir -> Command -> IO ()
