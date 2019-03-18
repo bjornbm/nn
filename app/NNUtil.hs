@@ -10,13 +10,13 @@ import qualified Data.List as L
 import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
-import qualified Data.Text.IO as T (putStrLn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
-import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
+import Path ( Path (..), Abs (..), Rel (..), File (..)
             , parent, fromAbsDir, reldir
-            , filename, fileExtension, parseAbsFile, fromAbsFile, parseRelFile, fromRelFile
+            , filename, fileExtension, parseAbsFile, parseAbsDir
+            , fromAbsFile, parseRelFile, fromRelFile
             , (</>), (-<.>)
             )
 import Path.IO (listDir, renameFile)
@@ -27,11 +27,11 @@ import Text.Megaparsec.Char
 
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
-mdfind :: Path Abs Dir -> [String] -> IO [Path Abs File]
+mdfind :: Dir -> [String] -> IO [Path Abs File]
 mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
   =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
-    stdArgs dir = [ "-onlyin", fromAbsDir dir , "-0" ]
+    stdArgs dir = [ "-onlyin", dir , "-0" ]
     massage = map unpack
             . filter (not . isSuffixOf "~")   -- Vim backup file.
             . filter (not . isSuffixOf ",v")  -- RCS file.
@@ -42,7 +42,9 @@ myfilter file = not (L.isSuffixOf "~"  file)   -- Vim backup file.
              && not (L.isSuffixOf ",v" file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir dir
+mdlist dir = do d <- parseAbsDir dir; sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir d
+
+type Dir = FilePath
 
 type Obsolete = Bool
 data ID = ID [String] deriving (Eq, Ord, Show)
@@ -86,14 +88,26 @@ showID (ID parts) = L.intercalate "_" parts
   -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title.md" "")
   -- "+2019_03_18_1009-note-The title.md"
 noteFilename :: Note -> String
-noteFilename (Note obs id tag title ext)
-  = (if obs then "+" else "")
+noteFilename = unpack . noteFilenameT
+
+noteFilenameT :: Note -> Text
+noteFilenameT (Note obs id tag title ext)
+  = (normalize NFC . pack) $
+  (if obs then "+" else "")
   <> showID id <> "-" <> tag <> "-" <> title  -- The interesting parts
   <> (if null ext then "" else "." <> ext)
+
+notePath dir note = dir <> "/" <> noteFilename note
 
 -- TODO: Consider adding extension in a principled manner with <.>?
 noteRelFile :: MonadThrow m => Note -> m (Path Rel File)
 noteRelFile = parseRelFile . noteFilename
+
+-- TODO: Consider adding extension in a principled manner with <.>?
+noteAbsFile :: MonadThrow m => Dir -> Note -> m (Path Abs File)
+noteAbsFile dir note = do
+  d <- parseAbsDir dir
+  (d </>) <$> noteRelFile note
 
 
 type Parser = Parsec Void Text
@@ -132,9 +146,10 @@ noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> pure ""
 
 -- | Extract tags from file names and count the number of uses of each tag.
   -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
-countTags :: [Path Abs File] -> [(Int, String)]
-countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-') . unpack . filename')
+countTags :: [Note] -> [(Int, String)]
+countTags = f . group . sort . map getTag
   where f = map (length &&& head)
+        getTag (Note _ _ t _ _) = t
   -- where f xs = zip (map length xs) (map head xs)
 
 -- | Create an ID for a new file. Specifically a time stamp
@@ -146,7 +161,18 @@ localTimeToID :: LocalTime -> ID
 localTimeToID t = ID $ map (\fmt -> formatTime undefined fmt t) ["%Y", "%m", "%d", "%H%M"]
 
 -- | Check in file with RCS. Use default description/message.
+--checkin :: [Path Abs File] -> IO ExitCode
 checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
+  where
+    args = [ "ci"   -- Check in.
+           , "-l"   -- Check out the file locked (with write permissions).
+           , "-t-\"Created by nn.\""  -- File description (first checkin).
+           , "-m\"Updated by nn.\""   -- Log message (second+ checkins).
+           ]
+
+-- | Check in file with RCS. Use default description/message.
+--checkin :: [Path Abs File] -> IO ExitCode
+checkinNotes dir notes = rawSystem "rcs" (args ++ map (notePath dir) notes)
   where
     args = [ "ci"   -- Check in.
            , "-l"   -- Check out the file locked (with write permissions).
@@ -167,7 +193,9 @@ checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
 
 -- | Rename a file as well as the corresponding RCS (,v) file.
 -- The file is given a new revision documenting the old name.
-renameRCS old new = do
+renameRCS dir oldNote newNote = do
+  old <- noteAbsFile dir oldNote
+  new <- noteAbsFile dir newNote
   renameFile old new
   rcsold <- rcsfile old
   rcsnew <- rcsfile new
@@ -186,6 +214,6 @@ filename' :: Path a File -> Text
 filename' = normalize NFC . pack . fromRelFile . filename
 
 -- | Print the filename (path removed).
-printFilename :: Path Abs File -> IO ()
-printFilename = T.putStrLn . filename'
+printFilename :: Note -> IO ()
+printFilename = putStrLn . noteFilename
 

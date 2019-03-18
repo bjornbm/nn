@@ -3,15 +3,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Applicative
-import Data.Either (isLeft, isRight, fromRight)
+import Data.Either (isLeft, isRight, fromRight, rights, lefts)
 import Data.List (sort)
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
-import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
+import Path ( Path (..), Abs (..), Rel (..), File (..)
             , parseAbsDir, parseRelFile
-            , fromRelFile, fromAbsFile
+            , fromRelFile, fromAbsFile, fromAbsDir
             , parent, fileExtension
             , (</>), (<.>), (-<.>))
 import Path.IO (copyFile)
@@ -59,7 +59,7 @@ defaultEditor = const (return "vi")
 
 main = do
   command <- parseCommand
-  dir <- parseAbsDir =<< getEnv "NN_HOME"  -- TODO graceful error handling.
+  dir <- getEnv "NN_HOME"  -- TODO graceful error handling.
   case command of
     List     {} -> list     dir command
     Cat      {} -> cat      dir command
@@ -73,34 +73,34 @@ main = do
     _           -> list     dir command
 
 
--- List the names of files matching the terms.
-list :: Path Abs Dir -> Command -> IO ()
-list dir (None terms) = mapM_ printFilename =<< getFiles dir Nothing terms
-list dir (List _ path Nothing tag terms) = getFiles dir tag terms >>=
-  mapM_ (if path then putStrLn . fromAbsFile else printFilename)
 
+-- List the names of files matching the terms.
+list :: Dir -> Command -> IO ()
+list dir (None terms) = mapM_ printFilename =<< getNotes dir Nothing terms
+list dir (List _ path Nothing tag terms) = getNotes dir tag terms >>=
+  mapM_ (if path then putStrLn . notePath dir else printFilename)
 
 -- Apply command specified with --exec to files matching the terms.
 list dir (List _ _ (Just exec) tag terms) = do
-  files <- getFiles dir tag terms
+  notes <- getNotes dir tag terms
   let cmd:args = words exec
-  rawSystem cmd (args ++ map fromAbsFile files) >>= \case
+  rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
     ExitSuccess -> return ()
     code        -> print code
 
-tags :: Path Abs Dir -> Command -> IO ()
+tags :: Dir -> Command -> IO ()
 tags dir (Tags pop) = do
-  ts <- countTags <$> getFiles dir Nothing []
+  ts <- countTags <$> getNotes dir Nothing []
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ reverse $ sort ts
          else mapM_ (putStrLn . snd) ts
 
-cat :: Path Abs Dir -> Command -> IO ()
+cat :: Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
-  files <- getFiles dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
-  contents <- mapM (T.readFile . fromAbsFile) files
+  notes <- getNotes dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
+  contents <- mapM (T.readFile . notePath dir) notes
   if noheaders
      then T.putStrLn $ T.intercalate "\n" contents
-     else T.putStrLn $ T.intercalate "\n\n\n" $ zipWith (\f c -> header (filename' f) <> c) files contents
+     else T.putStrLn $ T.intercalate "\n\n\n" $ zipWith (\n c -> header (pack $ noteFilename n) <> c) notes contents
   where
     header :: Text -> Text
     header s = s <> "\n" <> T.replicate (T.length s) "=" <> "\n"
@@ -110,72 +110,73 @@ cat dir (Cat noheaders id) = do
   -- Specifying both ID and serch terms is a user error.
   --
   -- TODO Make this type of file selection default for most actions?
-edit :: Path Abs Dir -> Command -> IO ()
-edit dir (Edit (Just id) [])    = editFiles =<< getFile dir id
-edit dir (Edit Nothing   [])    = editFiles =<< pure <$> getLast dir
-edit dir (Edit Nothing   terms) = editFiles =<< getFiles dir Nothing terms
+edit :: Dir -> Command -> IO ()
+edit dir (Edit (Just id) [])    = editNotes dir =<< getNote dir id
+edit dir (Edit Nothing   [])    = editNotes dir =<< pure <$> getLastNote dir
+edit dir (Edit Nothing   terms) = editNotes dir =<< getNotes dir Nothing terms
 edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
 
-editFiles :: [Path Abs File] -> IO ()
-editFiles files = do
+editNotes :: Dir -> [Note] -> IO ()
+editNotes dir notes = do
   exec <- catchIOError (getEnv "EDITOR") defaultEditor
-  if null files
+  if null notes
     then return ()
     else do
       let cmd:args = words exec
-      rawSystem cmd (args ++ map fromAbsFile files) >>= \case
-        ExitSuccess -> checkin files >>= \case
-            ExitSuccess -> mapM_ printFilename files
+      rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
+        ExitSuccess -> checkinNotes dir notes >>= \case
+            ExitSuccess -> mapM_ printFilename notes
             code        -> print code
         code        -> print code
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
-obsolete :: Path Abs Dir -> Command -> IO ()
+obsolete :: Dir -> Command -> IO ()
 obsolete dir (Obsolete dry id) = do
-  files <- getFile dir id
-  mapM_ (if dry then dryrun else run) files
+  notes <- getNote dir id
+  mapM_ (if dry then dryrun dir else run dir) notes
   where
-      obsfile :: Path Abs File -> IO (Path Abs File)
-      obsfile file = (parent file </>) <$> parseRelFile ('+' : unpack (filename' file))
+      obsnote :: Note -> Note
+      obsnote (Note _ i t n e) = Note True i t n e
 
-      dryrun file = printf "%s would be renamed %s\n" (fromAbsFile file)
-                  . fromAbsFile =<< obsfile file
+      dryrun :: Dir -> Note -> IO ()
+      dryrun dir note = printf "%s would be renamed %s\n"
+                        (notePath dir note)
+                        (notePath dir $ obsnote note)
 
-      run file = do
-        obs <- obsfile file
-        renameRCS file obs
+      run :: Dir -> Note -> IO ()
+      run dir note = do
+        let obs = obsnote note
+        renameRCS dir note obs
         printFilename obs  -- Show the new filename.
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
-rename :: Path Abs Dir -> Command -> IO ()
+rename :: Dir -> Command -> IO ()
 rename dir (Rename dry id name) = do
-  error "renaming is not yet implemented";
-  files <- getFile dir id
-  mapM_ (if dry then dryrun else run) files
+  notes <- getNote dir id
+  mapM_ (if dry then dryrun dir else run dir) notes
   where
-      -- TODO modify this code which is copied from `obsolete`.
-      newfile :: Path Abs File -> IO (Path Abs File)
-      newfile file = (parent file </>) <$> parseRelFile ('+' : unpack (filename' file))
-        where
-          fileid file  = undefined
-          filetag file = undefined
+      newnote :: Note -> Note
+      newnote (Note o i t n e) = Note o i t (unwords name) e
 
-      dryrun file = printf "%s would be renamed %s\n" (fromAbsFile file)
-                  . fromAbsFile =<< newfile file
+      dryrun :: Dir -> Note -> IO ()
+      dryrun dir note = printf "%s would be renamed %s\n"
+                        (notePath dir note)
+                        (notePath dir $ newnote note)
 
-      run file = do
-        new <- newfile file
-        renameRCS file new
+      run :: Dir -> Note -> IO ()
+      run dir note = do
+        let new = newnote note
+        renameRCS dir note new
         printFilename new  -- Show the new filename.
 
 -- List files with bad names.
-check :: Path Abs Dir -> Command -> IO ()
+check :: Dir -> Command -> IO ()
 check dir (Check True False) = do
   files <- mdlist dir
   mapM_ T.putStrLn $ filter (isLeft . parse noteParser "")
-                 $ map filename' files
+                   $ map filename' files
 
 -- List files with bad references.
 check dir (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
@@ -200,52 +201,54 @@ check dir (Check True True) = do
 
 
 -- | Import a pre-existing file, optionally with a new title.
-importC :: Path Abs Dir -> Command -> IO ()
+importC :: Dir -> Command -> IO ()
 importC dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
 importC dir (Import Nothing tag file) = do
   file' <- parseRelFile file
   title <- unpack . filename' <$> file' -<.> ""
   importC' dir tag title file'
 
-importC' :: Path Abs Dir -> String -> String -> Path Rel File -> IO ()
+importC' :: Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
   id <- makeID
   let note = Note False id tag title (fileExtension file)
   newfile <- noteRelFile note
-  copyFile file (dir </> newfile)
-  checkin [dir </> newfile] >>= \case
+  d <- parseAbsDir dir
+  copyFile file (d </> newfile)
+  checkin [d </> newfile] >>= \case
     ExitSuccess -> putStrLn $ fromRelFile newfile
     code        -> print code
 
-new :: Path Abs Dir -> Command -> IO ()
+new :: Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
   let note = Note False id tag (unwords name) "txt"
   newfile <- noteRelFile note
+  d <- parseAbsDir dir
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
-  rawSystem cmd (args ++ [fromAbsFile (dir </> newfile)]) >>= \case
-    ExitSuccess -> checkin [dir </> newfile] >>= \case
+  rawSystem cmd (args ++ [fromAbsFile (d </> newfile)]) >>= \case
+    ExitSuccess -> checkin [d </> newfile] >>= \case
       ExitSuccess -> putStrLn $ fromRelFile newfile
       code        -> print code
     code        -> print code
 
-getFiles :: Path Abs Dir -> Maybe Tag -> [String] -> IO [Path Abs File]
-getFiles dir Nothing    []    = processFiles notObsolete <$> mdlist dir
-getFiles dir Nothing    terms = processFiles notObsolete <$> mdfind dir terms
-getFiles dir (Just tag) terms = processFiles (f tag)     <$> mdfind dir (tag:terms)
+getNotes :: Dir -> Maybe Tag -> [String] -> IO [Note]
+getNotes dir Nothing    []    = processNotes notObsolete <$> mdlist dir
+getNotes dir Nothing    terms = processNotes notObsolete <$> mdfind dir terms
+getNotes dir (Just tag) terms = processNotes (f tag)     <$> mdfind dir (tag:terms)
   where
     f tag note = notObsolete note && hasTag tag note
 
-processFiles :: (Note -> Bool) -> [Path Abs File] -> [Path Abs File]
-processFiles f = filter (fromRight False . fmap f . parse noteParser "" . filename')
+processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
+processNotes f = filter f . rights . map (parse noteParser "" . filename')
 
-getLast :: Path Abs Dir -> IO (Path Abs File)
-getLast dir = last <$> getFiles dir Nothing []
+getLastNote :: Dir -> IO (Note)
+getLastNote dir = last <$> getNotes dir Nothing []
 
--- TODO getFile should return a single file like getLast. (What if two files have same ID?
-getFile :: Path Abs Dir -> String -> IO [Path Abs File]
-getFile dir id = processFiles f <$> mdfind dir ["name:"++id]
+-- TODO getNote should return a single file like getLast. (What if two files have same ID?
+getNote :: Dir -> String -> IO [Note]
+getNote dir id = processNotes f <$> mdfind dir ["name:"++id]
   where
     f = hasID (ID $ parts id)

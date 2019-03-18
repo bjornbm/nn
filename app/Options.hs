@@ -138,12 +138,12 @@ newOptions = New
   <*> someArguments "NAME"  -- TODO: should be TITLE?
 
 obsoleteOptions = Obsolete
-  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything.")
+  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
   <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
 
 renameOptions = Rename
-  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything.")
-  <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
+  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
+  <*> strOption (lsh "id" 'i' "The ID of the note to rename" <> metavar "ID")
   <*> someArguments "NAME"
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
