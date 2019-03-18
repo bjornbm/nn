@@ -178,7 +178,8 @@ importC dir (Import Nothing tag file) = do
 importC' :: Path Abs Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
   id <- makeID
-  newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ title ++ fileExtension file
+  let note = Note False id tag title (fileExtension file)
+  newfile <- noteRelFile note
   copyFile file (dir </> newfile)
   checkin [dir </> newfile] >>= \case
     ExitSuccess -> putStrLn $ fromRelFile newfile
@@ -187,7 +188,8 @@ importC' dir tag title file = do
 new :: Path Abs Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
-  newfile <- parseRelFile $ id ++ "-" ++ tag ++ "-" ++ unwords name ++ ".txt"
+  let note = Note False id tag (unwords name) "txt"
+  newfile <- noteRelFile note
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
@@ -198,9 +200,9 @@ new dir (New empty tag name) = do
     code        -> print code
 
 getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
-getFiles dir Nothing    []    = processFiles  filePattern              <$> mdlist dir
-getFiles dir Nothing    terms = processFiles  filePattern              <$> mdfind dir terms
-getFiles dir (Just tag) terms = processFiles (filePatternT $ pack tag) <$> mdfind dir (tag:terms)
+getFiles dir Nothing    []    = processFiles  filePattern       <$> mdlist dir
+getFiles dir Nothing    terms = processFiles  filePattern       <$> mdfind dir terms
+getFiles dir (Just tag) terms = processFiles (filePatternT tag) <$> mdfind dir (tag:terms)
 
 processFiles :: Parser String -> [Path Abs File] -> [Path Abs File]
 processFiles pattern = filter (isRight . parse pattern "" . filename')

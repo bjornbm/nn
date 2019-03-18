@@ -10,7 +10,6 @@ import qualified Data.List as L
 import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
-import qualified Data.Text as T (null)
 import qualified Data.Text.IO as T (putStrLn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
@@ -47,31 +46,34 @@ mdlist dir = sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir
 
 type Obsolete = Bool
 data ID = ID [String]
-type Tag = Text
-type Title = Text
+type Tag = String
+type Title = String
 type Contents = Text
-type Extension = Text
+type Extension = String
 data Note = Note Obsolete ID Tag Title Extension
 
--- | Convert a note ID to its textual representation.
+-- | Convert a note ID to its string representation.
   --
-  -- >>> textID (ID ["2019", "03", "18", "1009"]) == "2019_03_18_1009"
-textID :: ID -> Text
-textID (ID parts) = pack $ L.intercalate "_" parts
+  -- >>> showID (ID ["2019", "03", "18", "1009"])
+  -- "2019_03_18_1009"
+showID :: ID -> String
+showID (ID parts) = L.intercalate "_" parts
 
 -- | Create the filename of a note.
   --
-  -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt") = "2019_03_18_1009-note-The title.txt"
-  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt") = "+2019_03_18_1009-note-The title.txt"
-noteFilename :: Note -> Text
+  -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt")
+  -- "2019_03_18_1009-note-The title.txt"
+  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" "md")
+  -- "+2019_03_18_1009-note-The title.md"
+noteFilename :: Note -> String
 noteFilename (Note obs id tag title ext)
   = (if obs then "+" else "")
-  <> textID id <> "-" <> tag <> "-" <> title  -- The interesting parts
-  <> (if T.null ext then "" else "." <> ext)
+  <> showID id <> "-" <> tag <> "-" <> title  -- The interesting parts
+  <> (if null ext then "" else "." <> ext)
 
 -- TODO: Consider adding extension in a principled manner with <.>?
 noteRelFile :: MonadThrow m => Note -> m (Path Rel File)
-noteRelFile = parseRelFile . unpack . noteFilename
+noteRelFile = parseRelFile . noteFilename
 
 
 type Parser = Parsec Void Text
@@ -109,7 +111,7 @@ filePatternT :: Tag -> Parser String
 filePatternT tag = unpack <$> (idP *> taggedP tag)
   where
     taggedP :: Tag -> Parser Text
-    taggedP tag = char '-' *> string tag <* char '-'
+    taggedP tag = char '-' *> string (pack tag) <* char '-'
 
 -- | Extract tags from file names and count the number of uses of each tag.
 -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
@@ -120,11 +122,11 @@ countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-')
 
 -- | Create an ID for a new file. Specifically a time stamp
 -- based on the current local time with minute precision.
-makeID :: IO String
-makeID = do
-  t  <- getCurrentTime
-  tz <- getCurrentTimeZone
-  return $ formatTime undefined "%Y_%m_%d_%H%M" $ utcToLocalTime tz t
+makeID :: IO ID
+makeID = localTimeToID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
+
+localTimeToID :: LocalTime -> ID
+localTimeToID t = ID $ map (\fmt -> formatTime undefined fmt t) ["%Y", "%m", "%d", "%H%M"]
 
 -- | Check in file with RCS. Use default description/message.
 checkin files = rawSystem "rcs" (args ++ map fromAbsFile files)
