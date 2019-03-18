@@ -69,6 +69,7 @@ main = do
     New      {} -> new      dir command
     Edit     {} -> edit     dir command
     Obsolete {} -> obsolete dir command
+    Rename   {} -> rename   dir command
     _           -> list     dir command
 
 
@@ -137,6 +138,29 @@ obsolete dir (Obsolete dry id) = do
         obs <- obsfile file
         renameRCS file obs
         printFilename obs  -- Show the new filename.
+
+-- | Mark files as obsolete (prepend a '+' to the file name).
+--   TODO make sure selection works as desired.
+rename :: Path Abs Dir -> Command -> IO ()
+rename dir (Rename dry id name) = do
+  error "renaming is not yet implemented";
+  files <- getID dir id
+  mapM_ (if dry then dryrun else run) files
+  where
+      -- TODO modify this code which is copied from `obsolete`.
+      newfile :: Path Abs File -> IO (Path Abs File)
+      newfile file = (parent file </>) <$> parseRelFile ('+' : unpack (filename' file))
+        where
+          fileid file  = undefined
+          filetag file = undefined
+
+      dryrun file = printf "%s would be renamed %s\n" (fromAbsFile file)
+                  . fromAbsFile =<< newfile file
+
+      run file = do
+        new <- newfile file
+        renameRCS file new
+        printFilename new  -- Show the new filename.
 
 -- List files with bad names.
 check :: Path Abs Dir -> Command -> IO ()
