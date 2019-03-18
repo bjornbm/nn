@@ -77,6 +77,7 @@ data Command
   | None     { terms :: [String] }
   | Obsolete { dryrun :: Bool, id :: String }
   | Rename   { dryrun :: Bool, id :: String, name :: [String] }
+  | Retag    { dryrun :: Bool, id :: String, tag :: String }
   deriving (Show) -- , Data, Typeable)
 
 
@@ -99,6 +100,7 @@ options = subparser
   <> commandhd "new"           newOptions "Create a new note"
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   <> commandhd "rename"     renameOptions "Change title of note"
+  <> commandhd "retag"       retagOptions "Change tag of note"
   ) <|> (None <$> manyArguments "SEARCH TERMS")
 
 listOptions = List
@@ -145,6 +147,11 @@ renameOptions = Rename
   <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
   <*> strOption (lsh "id" 'i' "The ID of the note to rename" <> metavar "ID")
   <*> someArguments "NAME"
+
+retagOptions = Retag
+  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
+  <*> strOption (lsh "id" 'i' "The ID of the note to retag" <> metavar "ID")
+  <*> argument str (metavar "TAG")
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
         <> "Different behaviors are invoked by different subcommands. "

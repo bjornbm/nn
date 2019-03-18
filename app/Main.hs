@@ -71,6 +71,7 @@ main = do
     Edit     {} -> edit     dir command
     Obsolete {} -> obsolete dir command
     Rename   {} -> rename   dir command
+    Retag    {} -> retag    dir command
     _           -> list     dir command
 
 
@@ -151,7 +152,7 @@ obsolete dir (Obsolete dry id) = do
         renameRCS dir note obs
         printFilename obs  -- Show the new filename.
 
--- | Mark files as obsolete (prepend a '+' to the file name).
+-- | Rename file.
 --   TODO make sure selection works as desired.
 rename :: Dir -> Command -> IO ()
 rename dir (Rename dry id name) = do
@@ -171,6 +172,28 @@ rename dir (Rename dry id name) = do
         let new = newnote note
         renameRCS dir note new
         printFilename new  -- Show the new filename.
+
+-- | Change the tag of a file.
+--   TODO make sure selection works as desired.
+retag :: Dir -> Command -> IO ()
+retag dir (Retag dry id tag) = do
+  notes <- getNote dir id
+  mapM_ (if dry then dryrun dir else run dir) notes
+  where
+      newnote :: Note -> Note
+      newnote (Note o i _ n e) = Note o i tag n e
+
+      dryrun :: Dir -> Note -> IO ()
+      dryrun dir note = printf "%s would be renamed %s\n"
+                        (notePath dir note)
+                        (notePath dir $ newnote note)
+
+      run :: Dir -> Note -> IO ()
+      run dir note = do
+        let new = newnote note
+        renameRCS dir note new
+        printFilename new  -- Show the new filename.
+
 
 -- List files with bad names.
 check :: Dir -> Command -> IO ()
