@@ -38,8 +38,8 @@ mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
-myfilter file = not (L.isSuffixOf "~"  file)   -- Vim backup file.
-             && not (L.isSuffixOf ",v" file)  -- RCS file.
+myfilter file = not ("~"  `L.isSuffixOf` file)  -- Vim backup file.
+             && not (",v" `L.isSuffixOf` file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
 mdlist dir = do d <- parseAbsDir dir; sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir d
@@ -47,7 +47,7 @@ mdlist dir = do d <- parseAbsDir dir; sortOn filename . filter (myfilter . fromA
 type Dir = FilePath
 
 type Obsolete = Bool
-data ID = ID [String] deriving (Eq, Ord, Show)
+newtype ID = ID [String] deriving (Eq, Ord, Show)
 type Tag = String
 type Title = String
 type Contents = Text

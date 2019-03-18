@@ -241,7 +241,7 @@ getNotes dir (Just tag) terms = processNotes (f tag)     <$> mdfind dir (tag:ter
 processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
 processNotes f = filter f . rights . map (parse noteParser "" . filename')
 
-getLastNote :: Dir -> IO (Note)
+getLastNote :: Dir -> IO Note
 getLastNote dir = last <$> getNotes dir Nothing []
 
 -- TODO getNote should return a single file like getLast. (What if two files have same ID?
