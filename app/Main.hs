@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Applicative
-import Data.Either (isLeft, isRight)
+import Data.Either (isLeft, isRight, fromRight)
 import Data.List (sort)
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
@@ -142,7 +142,7 @@ obsolete dir (Obsolete dry id) = do
 check :: Path Abs Dir -> Command -> IO ()
 check dir (Check True False) = do
   files <- mdlist dir
-  mapM_ T.putStrLn $ filter (isLeft . parse filePatternFull "")
+  mapM_ T.putStrLn $ filter (isLeft . parse noteParser "")
                  $ map filename' files
 
 -- List files with bad references.
@@ -200,16 +200,19 @@ new dir (New empty tag name) = do
     code        -> print code
 
 getFiles :: Path Abs Dir -> Maybe String -> [String] -> IO [Path Abs File]
-getFiles dir Nothing    []    = processFiles  filePattern       <$> mdlist dir
-getFiles dir Nothing    terms = processFiles  filePattern       <$> mdfind dir terms
-getFiles dir (Just tag) terms = processFiles (filePatternT tag) <$> mdfind dir (tag:terms)
+getFiles dir Nothing    []    = processFiles notObsolete noteParser <$> mdlist dir
+getFiles dir Nothing    terms = processFiles notObsolete noteParser <$> mdfind dir terms
+getFiles dir (Just tag) terms = processFiles (f tag)     noteParser <$> mdfind dir (tag:terms)
+  where
+    f tag note = notObsolete note && hasTag tag note
 
-processFiles :: Parser String -> [Path Abs File] -> [Path Abs File]
-processFiles pattern = filter (isRight . parse pattern "" . filename')
+processFiles :: (Note -> Bool) -> Parser Note -> [Path Abs File] -> [Path Abs File]
+processFiles f pattern = filter (fromRight False . fmap f . parse pattern "" . filename')
 
 getLast :: Path Abs Dir -> IO (Path Abs File)
 getLast dir = last <$> getFiles dir Nothing []
 
 getID :: Path Abs Dir -> String -> IO [Path Abs File]
-getID dir id =  processFiles (filePatternID $ pack id) <$> mdfind dir ["name:"++id]
-
+getID dir id =  processFiles f noteParser <$> mdfind dir ["name:"++id]
+  where
+    f = hasID (ID $ parts id)

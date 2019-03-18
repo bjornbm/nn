@@ -45,12 +45,30 @@ myfilter file = not (L.isSuffixOf "~"  file)   -- Vim backup file.
 mdlist dir = sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir dir
 
 type Obsolete = Bool
-data ID = ID [String]
+data ID = ID [String] deriving (Eq, Ord, Show)
 type Tag = String
 type Title = String
 type Contents = Text
 type Extension = String
-data Note = Note Obsolete ID Tag Title Extension
+data Note = Note Obsolete ID Tag Title Extension deriving (Eq, Ord, Show)
+
+isObsolete  (Note o _ _ _ _) = o
+notObsolete (Note o _ _ _ _) = not o
+hasTag tag  (Note _ _ t _ _) = t == tag
+hasID id    (Note _ i _ _ _) = i == id
+
+-- | 'parts' breaks a String up into a list of parts, which were delimited
+-- by underscores.
+--
+-- >>> parts "Lorem_ipsum_dolor"
+-- ["Lorem","ipsum","dolor"]
+parts :: String -> [String]
+parts s = case dropWhile isSep s of
+            "" -> []
+            s' -> w : parts s''
+                    where (w, s'') = break isSep s'
+          where
+            isSep = (== '_')
 
 -- | Convert a note ID to its string representation.
   --
@@ -64,6 +82,8 @@ showID (ID parts) = L.intercalate "_" parts
   -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt")
   -- "2019_03_18_1009-note-The title.txt"
   -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" "md")
+  -- "+2019_03_18_1009-note-The title.md"
+  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title.md" "")
   -- "+2019_03_18_1009-note-The title.md"
 noteFilename :: Note -> String
 noteFilename (Note obs id tag title ext)
@@ -99,29 +119,26 @@ titleP = someTill anySingle (lookAhead $ try (eof    -- End of "good" file.
                            <|> char   '~'  *> eof    -- Unix (vim) backup file.
                            <|> string ",v" *> eof))  -- RCS file.
 
-filePatternFull :: Parser String
-filePatternFull = obsP *> idP *> tagP *> titleP <* eof
-filePatternO :: Parser String
-filePatternO = obsP *> idP *> tagP
-filePattern :: Parser String
-filePattern = idP *> tagP
-filePatternID :: Text -> Parser String
-filePatternID id = string id *> tagP
-filePatternT :: Tag -> Parser String
-filePatternT tag = unpack <$> (idP *> taggedP tag)
-  where
-    taggedP :: Tag -> Parser Text
-    taggedP tag = char '-' *> string (pack tag) <* char '-'
+-- | Parse a Note from a String (normally a file name)
+  -- TODO: Separate extension from title.
+  --
+  -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
+  -- Note True (ID ["2019","03","18","1009"]) "note" "The title.md" ""
+  --
+  -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
+  -- Note False (ID ["2019","03","18","1009"]) "note" "The title.txt" ""
+noteParser :: Parser Note
+noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> pure ""
 
 -- | Extract tags from file names and count the number of uses of each tag.
--- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
+  -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
 countTags :: [Path Abs File] -> [(Int, String)]
 countTags = f . group . sort . map (takeWhile (/='-') . tail . dropWhile (/='-') . unpack . filename')
   where f = map (length &&& head)
   -- where f xs = zip (map length xs) (map head xs)
 
 -- | Create an ID for a new file. Specifically a time stamp
--- based on the current local time with minute precision.
+  -- based on the current local time with minute precision.
 makeID :: IO ID
 makeID = localTimeToID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
 
