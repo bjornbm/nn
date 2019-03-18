@@ -4,17 +4,20 @@
 module NNUtil where
 
 import Control.Arrow ((&&&))
+import Control.Monad.Catch (MonadThrow)
 import Data.List (filter, group, init, sort, sortOn)
 import qualified Data.List as L
+import Data.Maybe (isJust)
 import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
+import qualified Data.Text as T (null)
 import qualified Data.Text.IO as T (putStrLn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
 import Path ( Path (..), Abs (..), Rel (..), Dir (..), File (..)
             , parent, fromAbsDir, reldir
-            , filename, fileExtension, parseAbsFile, fromAbsFile, fromRelFile
+            , filename, fileExtension, parseAbsFile, fromAbsFile, parseRelFile, fromRelFile
             , (</>), (-<.>)
             )
 import Path.IO (listDir, renameFile)
@@ -42,13 +45,41 @@ myfilter file = not (L.isSuffixOf "~"  file)   -- Vim backup file.
 -- | List all files in the directory except for hidden files.
 mdlist dir = sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir dir
 
+type Obsolete = Bool
+data ID = ID [String]
 type Tag = Text
-type ID = (String, String, String, String)
+type Title = Text
+type Contents = Text
+type Extension = Text
+data Note = Note Obsolete ID Tag Title Extension
+
+-- | Convert a note ID to its textual representation.
+  --
+  -- >>> textID (ID ["2019", "03", "18", "1009"]) == "2019_03_18_1009"
+textID :: ID -> Text
+textID (ID parts) = pack $ L.intercalate "_" parts
+
+-- | Create the filename of a note.
+  --
+  -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt") = "2019_03_18_1009-note-The title.txt"
+  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" "txt") = "+2019_03_18_1009-note-The title.txt"
+noteFilename :: Note -> Text
+noteFilename (Note obs id tag title ext)
+  = (if obs then "+" else "")
+  <> textID id <> "-" <> tag <> "-" <> title  -- The interesting parts
+  <> (if T.null ext then "" else "." <> ext)
+
+-- TODO: Consider adding extension in a principled manner with <.>?
+noteRelFile :: MonadThrow m => Note -> m (Path Rel File)
+noteRelFile = parseRelFile . unpack . noteFilename
+
+
 type Parser = Parsec Void Text
 
+
 -- Regex patterns.
-obsP :: Parser (Maybe Char)
-obsP  = optional $ char '+'
+obsP :: Parser Obsolete
+obsP  = isJust <$> optional (char '+')
 
 idP :: Parser ID
 idP = let sep = char '_' in do
@@ -56,7 +87,7 @@ idP = let sep = char '_' in do
   mm   <- sep *> count 2 digitChar
   dd   <- sep *> count 2 digitChar
   hhmm <- sep *> count 4 digitChar
-  return (yyyy,mm,dd,hhmm)
+  return $ ID [yyyy, mm, dd, hhmm]
 
 tagP :: Parser String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.

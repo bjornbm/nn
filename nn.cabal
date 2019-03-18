@@ -26,6 +26,7 @@ executable nn
                      , Options
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
+                     , exceptions
                      , megaparsec
                      , optparse-applicative
                      , path
