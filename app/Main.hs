@@ -214,7 +214,7 @@ importC' dir tag title file = do
 new :: Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
-  let note = Note False id tag (unwords name) "txt"
+  let note = Note False id tag (unwords name) ".txt"
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
