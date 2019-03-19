@@ -46,16 +46,16 @@ mdlist dir = do d <- parseAbsDir dir; sortOn filename . filter (myfilter . fromA
 
 type Dir = FilePath
 
-type Obsolete = Bool
+data Status = Obsoleted | Current deriving (Eq, Ord, Show)
 newtype ID = ID [String] deriving (Eq, Ord, Show)
 type Tag = String
 type Title = String
 type Contents = Text
 type Extension = String
-data Note = Note Obsolete ID Tag Title Extension deriving (Eq, Ord, Show)
+data Note = Note Status ID Tag Title Extension deriving (Eq, Ord, Show)
 
-isObsolete  (Note o _ _ _ _) = o
-notObsolete (Note o _ _ _ _) = not o
+notObsolete (Note Obsoleted _ _ _ _) = False
+notObsolete _                        = True
 hasTag tag  (Note _ _ t _ _) = t == tag
 hasID id    (Note _ i _ _ _) = i == id
 
@@ -81,21 +81,24 @@ showID (ID parts) = L.intercalate "_" parts
 
 -- | Create the filename of a note.
   --
-  -- >>> noteFilename (Note False (ID ["2019", "03", "18", "1009"]) "note" "The title" ".txt")
+  -- >>> noteFilename (Note Current (ID ["2019", "03", "18", "1009"]) "note" "The title" ".txt")
   -- "2019_03_18_1009-note-The title.txt"
-  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title" ".md")
+  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title" ".md")
   -- "+2019_03_18_1009-note-The title.md"
-  -- >>> noteFilename (Note True (ID ["2019", "03", "18", "1009"]) "note" "The title.md" "")
+  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title.md" "")
   -- "+2019_03_18_1009-note-The title.md"
 noteFilename :: Note -> String
 noteFilename = unpack . noteFilenameT
 
 noteFilenameT :: Note -> Text
-noteFilenameT (Note obs id tag title ext)
+noteFilenameT (Note status id tag title ext)
   = (normalize NFC . pack) $
-  (if obs then "+" else "")
+  obsoleted status
   <> showID id <> "-" <> tag <> "-" <> title  -- The interesting parts
   <> (if null ext then "" else ext)
+  where
+    obsoleted Obsoleted = "+"
+    obsoleted _         = ""
 
 notePath dir note = dir <> "/" <> noteFilename note
 
@@ -112,10 +115,15 @@ noteAbsFile dir note = do
 
 type Parser = Parsec Void Text
 
-
--- Regex patterns.
-obsP :: Parser Obsolete
-obsP  = isJust <$> optional (char '+')
+-- | Parse obsolete status.
+--
+-- >>> parseTest obsP $ pack "+name"
+-- Obsoleted
+--
+-- >>> parseTest obsP $ pack "name"
+-- Current
+obsP :: Parser Status
+obsP  = maybe Current (const Obsoleted) <$> optional (char '+')
 
 idP :: Parser ID
 idP = let sep = char '_' in do
@@ -137,10 +145,10 @@ titleP = someTill anySingle (lookAhead $ try (eof    -- End of "good" file.
   -- TODO: Separate extension from title.
   --
   -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
-  -- Note True (ID ["2019","03","18","1009"]) "note" "The title.md" ""
+  -- Note Obsoleted (ID ["2019","03","18","1009"]) "note" "The title.md" ""
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
-  -- Note False (ID ["2019","03","18","1009"]) "note" "The title.txt" ""
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title.txt" ""
 noteParser :: Parser Note
 noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> pure ""
 

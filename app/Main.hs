@@ -140,7 +140,7 @@ editNotes dir notes = do
 obsolete :: Dir -> Command -> IO ()
 obsolete dir (Obsolete dry id) = getNote dir id >>= modifyNotes dry f dir
   where
-    f (Note _ i t n e) = Note True i t n e
+    f (Note _ i t n e) = Note Obsoleted i t n e
 
 -- | Rename file.
 --   TODO make sure selection works as desired.
@@ -208,7 +208,7 @@ importC dir (Import Nothing tag file) = do
 importC' :: Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
   id <- makeID
-  let note = Note False id tag title (fileExtension file)
+  let note = Note Current id tag title (fileExtension file)
   newfile <- noteAbsFile dir note
   copyFile file newfile
   checkinNote dir note >>= \case
@@ -218,7 +218,7 @@ importC' dir tag title file = do
 new :: Dir -> Command -> IO ()
 new dir (New empty tag name) = do
   id <- makeID
-  let note = Note False id tag (unwords name) ".txt"
+  let note = Note Current id tag (unwords name) ".txt"
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
