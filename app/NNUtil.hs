@@ -136,6 +136,26 @@ idP = let sep = char '_' in do
 tagP :: Parser String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
 
+-- | Parse note title/name.
+--
+-- >>> parseTest titleP $ pack "monkey business"
+-- "monkey business"
+--
+-- >>> parseTest titleP $ pack "monkey business.txt"
+-- "monkey business.txt"
+--
+-- TODO>>> parseTest titleP $ pack "monkey business.txt"
+-- "monkey business"
+--
+-- TODO>>> parseTest titleP $ pack "monkey business.md.txt"
+-- "monkey business.md"
+--
+-- >>> parseTest titleP $ pack "monkey business~"
+-- "monkey business"
+--
+-- >>> parseTest titleP $ pack "monkey business,v"
+-- "monkey business"
+--
 titleP :: Parser String
 titleP = someTill anySingle (lookAhead $ try (eof    -- End of "good" file.
                            <|> char   '~'  *> eof    -- Unix (vim) backup file.
