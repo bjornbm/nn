@@ -65,6 +65,9 @@ defaultEditor = const (return "vi")
 main = do
   command <- parseCommand
   dir <- getEnv "NN_HOME"  -- TODO graceful error handling.
+  -- TODO This is really just a pattern match which could be replaced
+  -- with a single command. The current implementation just have lots
+  -- of partial functions!
   case command of
     List     {} -> list     dir command
     Cat      {} -> cat      dir command
