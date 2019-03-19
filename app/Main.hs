@@ -1,6 +1,7 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 import Control.Applicative
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
@@ -158,12 +159,12 @@ retag dir (Retag dry id tag) = getNote dir id >>= modifyNotes dry f dir
 -- | Apply function to the given notes, effectively changing their
   -- filenames. If the dry-run flag is set the renaming is shown but
   -- not performed.
-modifyNotes :: Bool -> (Note -> Note) -> Dir -> [Note] -> IO ()
-modifyNotes True f dir = mapM_  -- dry-run
+modifyNotes :: Run -> (Note -> Note) -> Dir -> [Note] -> IO ()
+modifyNotes Dry f dir = mapM_  -- dry-run
   (\note -> printf "%s would be renamed %s\n"
                          (notePath dir note)
                          (notePath dir $ f note))
-modifyNotes False f dir = mapM_  -- Full run
+modifyNotes Full f dir = mapM_  -- Full run
   (\note -> renameRCS dir note (f note)
          >> printFilename (f note))  -- Show the new filename.
 

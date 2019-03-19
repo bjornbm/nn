@@ -75,11 +75,12 @@ data Command
   | Import   { title :: Maybe String, tag :: String, file :: String }
   | New      { empty :: Bool, tag :: String, name :: [String] }
   | None     { terms :: [String] }
-  | Obsolete { dryrun :: Bool, id :: String }
-  | Rename   { dryrun :: Bool, id :: String, name :: [String] }
-  | Retag    { dryrun :: Bool, id :: String, tag :: String }
+  | Obsolete { dryrun :: Run, id :: String }
+  | Rename   { dryrun :: Run, id :: String, name :: [String] }
+  | Retag    { dryrun :: Run, id :: String, tag :: String }
   deriving (Show) -- , Data, Typeable)
 
+data Run = Dry | Full deriving (Show, Eq)
 
 
 infoh parser = info (helper <*> parser)
@@ -134,22 +135,27 @@ importOptions = Import
   where
     titleDesc = "Import with title TITLE. If no title is specified the name of the file will be used as the note title."
 
+dryswitch = dryrun <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
+  where
+    dryrun True  = Dry
+    dryrun False = Full
+
 newOptions = New
   <$> switch (lsh "empty" 'e' "Create an empty note")
   <*> argument str (metavar "TAG")
   <*> someArguments "NAME"  -- TODO: should be TITLE?
 
 obsoleteOptions = Obsolete
-  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
+  <$> dryswitch
   <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
 
 renameOptions = Rename
-  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
+  <$> dryswitch
   <*> strOption (lsh "id" 'i' "The ID of the note to rename" <> metavar "ID")
   <*> someArguments "NAME"
 
 retagOptions = Retag
-  <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
+  <$> dryswitch
   <*> strOption (lsh "id" 'i' "The ID of the note to retag" <> metavar "ID")
   <*> argument str (metavar "TAG")
 
