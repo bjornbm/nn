@@ -38,7 +38,7 @@ defaultEditor = const (return "vi")
 -  nn 2010 doesn't find anything. In fact, mdfind will not find anything with 2010 in it!!
 -  nn edit based on search term rather than ID?
 -  nn cat works strange (not like search); use ID or search term??
--  nn rename command, takes -i
++  nn rename command, takes -i
 -  nn redate command, takes -i and optional new date (otherwise now)
 -  nn pandoc command?
 -  nn pretty command? (| pandoc --smart --to=plain)
@@ -55,6 +55,9 @@ defaultEditor = const (return "vi")
 -  nn check files without tags and without titles
 -  When listing, indicate empty files (or number of lines in file?)
 -  Allow multiple --tag (should they be OR or AND (only meaningful with support for multiple tags))
+-  nn retag command allow to retag by search terms in addition to ID?
+-  makeID to make greater ID if already taken?
+-  check to identify identical IDs.
 -}
 
 
