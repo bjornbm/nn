@@ -7,7 +7,7 @@ import Control.Arrow ((&&&))
 import Control.Monad.Catch (MonadThrow)
 import Data.List (filter, group, init, sort, sortOn)
 import qualified Data.List as L
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
@@ -20,7 +20,6 @@ import Path ( Path (..), Abs (..), Rel (..), File (..)
             , (</>), (-<.>)
             )
 import Path.IO (listDir, renameFile)
-import System.FilePath (splitExtension)
 import System.Process
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -55,7 +54,7 @@ type Tag = String
 type Title = String
 type Contents = Text
 type Extension = String
-data Note = Note Status ID Tag Title Extension deriving (Eq, Ord, Show)
+data Note = Note Status ID Tag Title (Maybe Extension) deriving (Eq, Ord, Show)
 
 notObsolete (Note Obsoleted _ _ _ _) = False
 notObsolete _                        = True
@@ -84,11 +83,11 @@ showID (ID parts) = L.intercalate "_" parts
 
 -- | Create the filename of a note.
   --
-  -- >>> noteFilename (Note Current (ID ["2019", "03", "18", "1009"]) "note" "The title" ".txt")
+  -- >>> noteFilename (Note Current (ID ["2019", "03", "18", "1009"]) "note" "The title" (Just ".txt"))
   -- "2019_03_18_1009-note-The title.txt"
-  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title" ".md")
+  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title" (Just ".md"))
   -- "+2019_03_18_1009-note-The title.md"
-  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title.md" "")
+  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title.md" Nothing)
   -- "+2019_03_18_1009-note-The title.md"
 noteFilename :: Note -> String
 noteFilename = unpack . noteFilenameT
@@ -98,7 +97,7 @@ noteFilenameT (Note status id tag title ext)
   = (normalize NFC . pack) $
   obsoleted status
   <> showID id <> "-" <> tag <> "-" <> title  -- The interesting parts
-  <> (if null ext then "" else ext)
+  <> fromMaybe "" ext
   where
     obsoleted Obsoleted = "+"
     obsoleted _         = ""
@@ -141,50 +140,63 @@ idP = let sep = char '_' in do
 tagP :: Parser String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
 
+backupP :: Parser ()
+backupP = char '~' *> eof
+rcsP :: Parser ()
+rcsP = string ",v" *> eof
+
 -- | Parse note title/name.
 --
 -- >>> parseTest titleP $ pack "monkey business"
 -- "monkey business"
 --
 -- >>> parseTest titleP $ pack "monkey business.txt"
--- "monkey business.txt"
---
--- TODO>>> parseTest titleP $ pack "monkey business.txt"
 -- "monkey business"
 --
--- TODO>>> parseTest titleP $ pack "monkey business.md.txt"
+-- >>> parseTest titleP $ pack "monkey business.md.txt"
 -- "monkey business.md"
 --
 -- TODO Why the following?
 -- >>> parseTest titleP $ pack "monkey business~"
 -- "monkey business"
 --
+-- >>> parseTest titleP $ pack "monkey business.txt~"
+-- "monkey business"
+--
 -- TODO Why the following?
 -- >>> parseTest titleP $ pack "monkey business,v"
 -- "monkey business"
 --
+-- >>> parseTest titleP $ pack "monkey business.txt.md,v"
+-- "monkey business.txt"
+--
 titleP :: Parser String
-titleP = someTill anySingle (lookAhead $ try (eof    -- End of "good" file.
-                           <|> char   '~'  *> eof    -- Unix (vim) backup file.
-                           <|> string ",v" *> eof))  -- RCS file.
+titleP = someTill anySingle (lookAhead $ try (optional extP <* endP))
+
+endP = eof <|> backupP <|> rcsP
+
+extP :: Parser (Maybe Extension)
+extP = optional $ ("." <>) <$> (char '.' *> many alphaNumChar)
 
 -- | Parse a Note from a String (normally a file name)
   -- TODO: Separate extension from title.
   --
   -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
-  -- Note Obsoleted (ID ["2019","03","18","1009"]) "note" "The title" ".md"
+  -- Note Obsoleted (ID ["2019","03","18","1009"]) "note" "The title" (Just ".md")
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title" ".txt"
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title" (Just ".txt")
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "www.klintenas.se" ".txt"
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "www.klintenas.se" (Just ".txt")
+  --
+  -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt~")
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "www.klintenas.se" (Just ".txt")
+  --
+  -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title")
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title" Nothing
 noteParser :: Parser Note
-noteParser = fixExt
-         <$> (Note <$> obsP <*> idP <*> tagP <*> titleP <*> pure undefined)
-  where
-    -- TODO: ugly to not do this properly with a parser.
-    fixExt (Note o i t ne _) = uncurry (Note o i t) $ splitExtension ne
+noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 
 -- | Extract tags from file names and count the number of uses of each tag.
   -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
