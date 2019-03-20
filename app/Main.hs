@@ -59,6 +59,7 @@ defaultEditor = const (return "vi")
 -  nn retag command allow to retag by search terms in addition to ID?
 -  makeID to make greater ID if already taken?
 -  check to identify identical IDs.
+-  List in format "ID [tag] title" (without extension)
 -}
 
 

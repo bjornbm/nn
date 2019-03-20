@@ -20,6 +20,7 @@ import Path ( Path (..), Abs (..), Rel (..), File (..)
             , (</>), (-<.>)
             )
 import Path.IO (listDir, renameFile)
+import System.FilePath (splitExtension)
 import System.Process
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -171,12 +172,19 @@ titleP = someTill anySingle (lookAhead $ try (eof    -- End of "good" file.
   -- TODO: Separate extension from title.
   --
   -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
-  -- Note Obsoleted (ID ["2019","03","18","1009"]) "note" "The title.md" ""
+  -- Note Obsoleted (ID ["2019","03","18","1009"]) "note" "The title" ".md"
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title.txt" ""
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title" ".txt"
+  --
+  -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt")
+  -- Note Current (ID ["2019","03","18","1009"]) "note" "www.klintenas.se" ".txt"
 noteParser :: Parser Note
-noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> pure ""
+noteParser = fixExt
+         <$> (Note <$> obsP <*> idP <*> tagP <*> titleP <*> pure undefined)
+  where
+    -- TODO: ugly to not do this properly with a parser.
+    fixExt (Note o i t ne _) = uncurry (Note o i t) $ splitExtension ne
 
 -- | Extract tags from file names and count the number of uses of each tag.
   -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
