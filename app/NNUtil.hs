@@ -102,7 +102,11 @@ noteFilenameT (Note status id tag title ext)
     obsoleted Obsoleted = "+"
     obsoleted _         = ""
 
-notePath dir note = dir <> "/" <> noteFilename note
+notePath :: Dir -> Note -> FilePath
+-- TODO less secure?:
+-- notePath dir note = dir System.FilePath.</> noteFilename note
+notePath dir = maybe (error "Invalid filename or directory.") fromAbsFile
+             . noteAbsFile dir
 
 -- TODO: Consider adding extension in a principled manner with <.>?
 noteRelFile :: MonadThrow m => Note -> m (Path Rel File)
@@ -110,9 +114,7 @@ noteRelFile = parseRelFile . noteFilename
 
 -- TODO: Consider adding extension in a principled manner with <.>?
 noteAbsFile :: MonadThrow m => Dir -> Note -> m (Path Abs File)
-noteAbsFile dir note = do
-  d <- parseAbsDir dir
-  (d </>) <$> noteRelFile note
+noteAbsFile dir note = (</>) <$> parseAbsDir dir <*> noteRelFile note
 
 
 type Parser = Parsec Void Text
