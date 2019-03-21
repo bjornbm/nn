@@ -86,9 +86,9 @@ main = do
 
 -- List the names of files matching the terms.
 list :: Dir -> Command -> IO ()
-list dir (None terms) = mapM_ printFilename =<< getNotes dir Nothing terms
+list dir (None terms) = mapM_ printNote =<< getNotes dir Nothing terms
 list dir (List _ path Nothing tag terms) = getNotes dir tag terms >>=
-  mapM_ (if path then putStrLn . notePath dir else printFilename)
+  mapM_ (if path then putStrLn . notePath dir else printNote)
 
 -- Apply command specified with --exec to files matching the terms.
 list dir (List _ _ (Just exec) tag terms) = do

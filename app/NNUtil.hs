@@ -1,5 +1,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module NNUtil where
 
@@ -90,6 +91,10 @@ splitParts s = case dropWhile isSep s of
 showID :: ID -> String
 showID (ID parts) = L.intercalate "_" parts
 
+showStatus :: Status -> String
+showStatus Obsoleted = "+"
+showStatus _         = ""
+
 -- | Create the filename of a note.
   --
   -- >>> noteFilename (Note Current (ID ["2019", "03", "18", "1009"]) "note" "The title" (Just ".txt"))
@@ -102,14 +107,10 @@ noteFilename :: Note -> String
 noteFilename = unpack . noteFilenameT
 
 noteFilenameT :: Note -> Text
-noteFilenameT (Note status id tag title ext)
-  = (normalize NFC . pack) $
-  obsoleted status
-  <> showID id <> "-" <> tag <> "-" <> title  -- The interesting parts
-  <> fromMaybe "" ext
-  where
-    obsoleted Obsoleted = "+"
-    obsoleted _         = ""
+noteFilenameT Note { .. }
+  = (normalize NFC . pack) $ showStatus status
+    <> showID nid <> "-" <> tag <> "-" <> name  -- The interesting parts
+    <> fromMaybe "" ext
 
 notePath :: Dir -> Note -> FilePath
 -- TODO less secure?:
@@ -271,4 +272,12 @@ filename' = normalize NFC . pack . fromRelFile . filename
 -- | Print the filename (path removed).
 printFilename :: Note -> IO ()
 printFilename = putStrLn . noteFilename
+
+-- | Show the note
+showNote :: Note -> String
+showNote Note { .. } = showStatus status <> showID nid <> " [" <> tag <> "] " <> name
+
+-- | Print the note
+printNote :: Note -> IO ()
+printNote = putStrLn . showNote
 
