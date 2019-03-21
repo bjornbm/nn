@@ -5,7 +5,7 @@
 
 import Control.Applicative
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
-import Data.List (sortOn)
+import Data.List (sortOn, groupBy)
 import Data.Ord (Down (Down))
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
@@ -173,32 +173,37 @@ modifyNotes Full f dir = mapM_  -- Full run
          >> printFilename (f note))  -- Show the new filename.
 
 -- List files with bad names.
-check :: Dir -> Command -> IO ()
-check dir (Check True False) = do
-  files <- mdlist dir
+checkNames :: [Path Abs File] -> IO ()
+checkNames files = do
+  -- Bad filenamess
   mapM_ T.putStrLn $ filter (isLeft . parse noteParser "")
                    $ map filename' files
 
+checkDuplicateIDs :: [Path Abs File] -> IO ()
+checkDuplicateIDs = mapM_ (mapM_ (T.putStrLn . noteFilenameT)) . findDuplicateIDs
+  where
+    findDuplicateIDs :: [Path Abs File] -> [[Note]]
+    findDuplicateIDs = filter ((>1) . length) . groupBy equalIDs . notes
+    notes = rights . map (parse noteParser "" . filename')
+    equalIDs n1 n2 = nid n1 == nid n2
+
 -- List files with bad references.
-check dir (Check False True) = putStrLn "NOT IMPLEMENTED" -- TODO
+checkRefs files = putStrLn "NOT IMPLEMENTED" -- TODO
 
 -- List bad files with headers.
-check dir (Check False False) = do
+check dir (Check names refs) = do
+  files <- mdlist dir
   putStrLn "Badly named files"
   putStrLn "-----------------"
-  check dir (Check True False)
+  checkNames files
   putStrLn ""
   putStrLn "Files with duplicate identifiers"
   putStrLn "--------------------------------"
-  putStrLn "NOT IMPLEMENTED" -- TODO
+  checkDuplicateIDs files
   putStrLn ""
   putStrLn "Files with bad references"
   putStrLn "-------------------------"
-  check dir (Check False True)
-
-check dir (Check True True) = do
-  check dir (Check True False)
-  check dir (Check False True)
+  checkRefs files
 
 
 -- | Import a pre-existing file, optionally with a new title.
