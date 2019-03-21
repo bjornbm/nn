@@ -51,25 +51,34 @@ type Dir = FilePath
 data Status = Obsoleted | Current deriving (Eq, Ord, Show)
 newtype ID = ID [String] deriving (Eq, Ord, Show)
 type Tag = String
-type Title = String
+type Name = String
 type Contents = Text
 type Extension = String
-data Note = Note Status ID Tag Title (Maybe Extension) deriving (Eq, Ord, Show)
+data Note = Note
+  { status :: Status
+  , nid    :: ID
+  , tag    :: Tag
+  , name   :: Name
+  , ext   :: Maybe Extension
+  } deriving (Eq, Ord, Show)
 
-notObsolete (Note Obsoleted _ _ _ _) = False
-notObsolete _                        = True
-hasTag tag  (Note _ _ t _ _) = t == tag
-hasID id    (Note _ i _ _ _) = i == id
+notObsolete :: Note -> Bool
+notObsolete = (/= Obsoleted) . status
+
+hasTag :: Tag -> Note -> Bool
+hasTag t = (t ==) . tag
+hasID :: ID -> Note -> Bool
+hasID  i = (i ==) . nid
 
 -- | 'parts' breaks a String up into a list of parts, which were delimited
 -- by underscores.
 --
 -- >>> parts "Lorem_ipsum_dolor"
 -- ["Lorem","ipsum","dolor"]
-parts :: String -> [String]
-parts s = case dropWhile isSep s of
-            "" -> []
-            s' -> w : parts s''
+splitParts :: String -> [String]
+splitParts s = case dropWhile isSep s of
+                  "" -> []
+                  s' -> w : splitParts s''
                     where (w, s'') = break isSep s'
           where
             isSep = (== '_')
@@ -201,10 +210,7 @@ noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 -- | Extract tags from file names and count the number of uses of each tag.
   -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
 countTags :: [Note] -> [(Int, String)]
-countTags = f . group . sort . map getTag
-  where f = map (length &&& head)
-        getTag (Note _ _ t _ _) = t
-  -- where f xs = zip (map length xs) (map head xs)
+countTags = map (length &&& head) . group . sort . map tag
 
 -- | Create an ID for a new file. Specifically a time stamp
   -- based on the current local time with minute precision.

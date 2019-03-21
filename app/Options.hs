@@ -72,12 +72,12 @@ data Command
   | Edit     { editID :: Maybe String, terms :: [String] }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
-  | Import   { title :: Maybe String, tag :: String, file :: String }
-  | New      { empty :: Bool, tag :: String, name :: [String] }
+  | Import   { title :: Maybe String, newTag :: String, file :: String }
+  | New      { empty :: Bool, newTag :: String, nameParts :: [String] }
   | None     { terms :: [String] }
   | Obsolete { dryrun :: Run, id :: String }
-  | Rename   { dryrun :: Run, id :: String, name :: [String] }
-  | Retag    { dryrun :: Run, id :: String, tag :: String }
+  | Rename   { dryrun :: Run, id :: String, nameParts :: [String] }
+  | Retag    { dryrun :: Run, id :: String, newTag :: String }
   deriving (Show) -- , Data, Typeable)
 
 data Run = Dry | Full deriving (Show, Eq)

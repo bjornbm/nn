@@ -144,21 +144,21 @@ editNotes dir notes = do
 obsolete :: Dir -> Command -> IO ()
 obsolete dir (Obsolete dry id) = getNote dir id >>= modifyNotes dry f dir
   where
-    f (Note _ i t n e) = Note Obsoleted i t n e
+    f n = n { status = Obsoleted }
 
 -- | Rename file.
 --   TODO make sure selection works as desired.
 rename :: Dir -> Command -> IO ()
-rename dir (Rename dry id name) = getNote dir id >>= modifyNotes dry f dir
+rename dir (Rename dry id nameParts) = getNote dir id >>= modifyNotes dry f dir
   where
-    f (Note o i t n e) = Note o i t (unwords name) e
+    f n = n { name = unwords nameParts }
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
 retag :: Dir -> Command -> IO ()
-retag dir (Retag dry id tag) = getNote dir id >>= modifyNotes dry f dir
+retag dir (Retag dry id newTag) = getNote dir id >>= modifyNotes dry f dir
   where
-    f (Note o i _ n e) = Note o i tag n e
+    f n = n { tag = newTag }
 
 -- | Apply function to the given notes, effectively changing their
   -- filenames. If the dry-run flag is set the renaming is shown but
@@ -249,4 +249,4 @@ getLastNote dir = last <$> getNotes dir Nothing []
 getNote :: Dir -> String -> IO [Note]
 getNote dir id = processNotes f <$> mdfind dir ["name:"++id]
   where
-    f = hasID (ID $ parts id)
+    f = hasID (ID $ splitParts id)  -- TODO maybe check that the provided ID is valid??
