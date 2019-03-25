@@ -1,4 +1,5 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE LambdaCase #-}
 
 {-
 
@@ -55,6 +56,7 @@ Sanity checking commands:
 module Options where
 
 
+import Data.Maybe (maybe)
 import Data.Semigroup ((<>))
 import Options.Applicative
 
@@ -65,9 +67,8 @@ data Options = Options
   , optCommand :: Command
   }
 
-
 data Command
-  = List     { all :: Bool, path :: Bool, exec :: Maybe String, tagged :: Maybe String, terms :: [String] }
+  = List     { all :: Bool, path :: Bool, exec :: Maybe String, mselection :: SelectMulti }
   | Cat      { noheaders :: Bool, id :: String }
   | Edit     { editID :: Maybe String, terms :: [String] }
   | Tags     { popularity :: Bool }
@@ -76,23 +77,62 @@ data Command
   | New      { empty :: Bool, newTag :: String, nameParts :: [String] }
   | None     { terms :: [String] }
   | Obsolete { dryrun :: Run, id :: String }
-  | Rename   { dryrun :: Run, id :: String, nameParts :: [String] }
+  | Rename   { dryrun :: Run, selection :: SelectOne, nameParts :: [String] }
   | Retag    { dryrun :: Run, id :: String, newTag :: String }
   deriving (Show) -- , Data, Typeable)
 
 data Run = Dry | Full deriving (Show, Eq)
+
+data Join = AND | OR deriving (Show, Eq)
+
+data SelectMulti = Multi
+  { sLast :: Bool
+  , sIDs :: [String]
+  , sTAGs :: [String]
+  , sEXTs :: [String]
+  , sJoin :: Join
+  , sTERMs :: [String]
+  } deriving (Show, Eq)
+
+selectMultiOptions = Multi
+  <$> selectLast
+  <*> selectIDs
+  <*> selectTags
+  <*> selectExts
+  <*> selectJoin
+  <*> selectTerms
+  where
+    selectLast  = switch (lsh "last" 'l' "Select the most recent note")
+    selectIDs   = many $ strOption
+      (lsh "id" 'i' "The ID of a note to select" <> metavar "ID")
+    selectTags  = many $ strOption
+      (lsh "tag"  't' "Select notes tagged with TAG" <> metavar "TAG")
+    selectExts  = many $ strOption
+      (lsh "ext" 'e' "Select notes with extension EXT" <> metavar "EXT")
+    selectJoin  = (\b -> if b then AND else OR) <$> switch (lh "and" "Select only notes satisfying ALL specified criteria. If not specified notes satisfying ANY criteria will be selected (except SEARCH TERMS which must all be satisfied).")
+    selectTerms = manyArguments "SEARCH TERMS"
+
+
+data SelectOne = SelectID { sID :: String } | SelectLast deriving (Eq, Show)
+
+selectOneOptions = maybe SelectLast SelectID <$> selectID
+  where
+    selectID = strOptional (lsh "id" 'i' ("The ID of the note to select. If no ID is specified the most recent note is selected.") <> metavar "ID")
+
+
 
 
 infoh parser = info (helper <*> parser)
 commandh name parser = command name . infoh parser
 commandhd name parser = command name . infoh parser . progDesc
 strOptional = optional . strOption
+lh l h = long l <> help h
 lsh l s h = long l <> short s <> help h
 manyArguments = many . argument str . metavar
 someArguments = some . argument str . metavar
 
 options = subparser
-  (  commandhd "list"         listOptions "List notes"
+  (  commandhd "list"         listOptions "List selected notes"
   <> commandhd "cat"           catOptions "Concatenate notes to STDOUT"
   <> commandhd "edit"         editOptions "Edit notes selected by ID or search terms"
   <> commandhd "tags"         tagsOptions "Display all tags currently in use"
@@ -100,7 +140,7 @@ options = subparser
   <> commandhd "import"     importOptions "Import a file as a note"
   <> commandhd "new"           newOptions "Create a new note"
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
-  <> commandhd "rename"     renameOptions "Change title of note"
+  <> commandhd "rename"     renameOptions "Change name of selected note"
   <> commandhd "retag"       retagOptions "Change tag of note"
   ) <|> (None <$> manyArguments "SEARCH TERMS")
 
@@ -108,9 +148,7 @@ listOptions = List
   <$> switch      (lsh "all"  'a' "Include obsoleted notes in search [NOT IMPLEMENTED]")
   <*> switch      (lsh "path" 'p' "List full path of note files")
   <*> strOptional (lsh "exec" 'e' "Pass notes file paths as arguments to COMMAND" <> metavar "COMMAND")
-  <*> strOptional (lsh "tag"  't' "Only notes tagged with TAG"                    <> metavar "TAG")
-  <*> manyArguments "SEARCH TERMS"
-  -- <*> many (argument str $ metavar "SEARCH TERMS")
+  <*> selectMultiOptions
 
 catOptions :: Parser Command
 catOptions = Cat
@@ -151,7 +189,7 @@ obsoleteOptions = Obsolete
 
 renameOptions = Rename
   <$> dryswitch
-  <*> strOption (lsh "id" 'i' "The ID of the note to rename" <> metavar "ID")
+  <*> selectOneOptions
   <*> someArguments "NAME"
 
 retagOptions = Retag

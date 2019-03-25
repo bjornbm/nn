@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Control.Applicative
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
@@ -86,13 +87,13 @@ main = do
 
 -- List the names of files matching the terms.
 list :: Dir -> Command -> IO ()
-list dir (None terms) = mapM_ printNote =<< getNotes dir Nothing terms
-list dir (List _ path Nothing tag terms) = getNotes dir tag terms >>=
+list dir (None terms) = mapM_ printNote =<< getNotes dir []    terms
+list dir (List _ path Nothing Multi{..}) = getNotes dir sTAGs sTERMs >>=
   mapM_ (if path then putStrLn . notePath dir else printNote)
 
 -- Apply command specified with --exec to files matching the terms.
-list dir (List _ _ (Just exec) tag terms) = do
-  notes <- getNotes dir tag terms
+list dir (List _ _ (Just exec) Multi{..}) = do
+  notes <- getNotes dir sTAGs sTERMs
   let cmd:args = words exec
   rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
     ExitSuccess -> return ()
@@ -100,13 +101,13 @@ list dir (List _ _ (Just exec) tag terms) = do
 
 tags :: Dir -> Command -> IO ()
 tags dir (Tags pop) = do
-  ts <- countTags <$> getNotes dir Nothing []
+  ts <- countTags <$> getNotes dir [] []
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ sortOn Down ts
          else mapM_ (putStrLn . snd) ts
 
 cat :: Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
-  notes <- getNotes dir Nothing ["name:"++id]  -- TODO not solid. TODO use tag
+  notes <- getNotes dir [] ["name:"++id]  -- TODO not solid. TODO use tag
   contents <- mapM (T.readFile . notePath dir) notes
   if noheaders
      then T.putStrLn $ T.intercalate "\n" contents
@@ -121,9 +122,9 @@ cat dir (Cat noheaders id) = do
   --
   -- TODO Make this type of file selection default for most actions?
 edit :: Dir -> Command -> IO ()
-edit dir (Edit (Just id) [])    = editNotes dir =<< getNote dir id
+edit dir (Edit (Just id) [])    = editNotes dir =<< getIDNote dir id
 edit dir (Edit Nothing   [])    = editNotes dir =<< pure <$> getLastNote dir
-edit dir (Edit Nothing   terms) = editNotes dir =<< getNotes dir Nothing terms
+edit dir (Edit Nothing   terms) = editNotes dir =<< getNotes dir [] terms
 edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
 
 editNotes :: Dir -> [Note] -> IO ()
@@ -142,23 +143,30 @@ editNotes dir notes = do
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
 obsolete :: Dir -> Command -> IO ()
-obsolete dir (Obsolete dry id) = getNote dir id >>= modifyNotes dry f dir
+obsolete dir (Obsolete dry id) = getIDNote dir id >>= modifyNotes dry f dir
   where
     f n = n { status = Obsoleted }
 
--- | Rename file.
---   TODO make sure selection works as desired.
+-- | Rename a single note.
 rename :: Dir -> Command -> IO ()
-rename dir (Rename dry id nameParts) = getNote dir id >>= modifyNotes dry f dir
+rename dir (Rename dry sel nameParts) = getOneNote dir sel >>= modifyNote dry f dir
   where
     f n = n { name = unwords nameParts }
+
+
+getOneNote :: Dir -> SelectOne -> IO Note
+getOneNote dir  SelectLast  = getLastNote dir
+getOneNote dir (SelectID i) = head <$> getIDNote dir i
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
 retag :: Dir -> Command -> IO ()
-retag dir (Retag dry id newTag) = getNote dir id >>= modifyNotes dry f dir
+retag dir (Retag dry id newTag) = getIDNote dir id >>= modifyNotes dry f dir
   where
     f n = n { tag = newTag }
+
+modifyNote :: Run -> (Note -> Note) -> Dir -> Note -> IO ()
+modifyNote run f dir = modifyNotes run f dir . pure
 
 -- | Apply function to the given notes, effectively changing their
   -- filenames. If the dry-run flag is set the renaming is shown but
@@ -237,21 +245,28 @@ new dir (New empty tag name) = do
       code        -> print code
     code        -> print code
 
-getNotes :: Dir -> Maybe Tag -> [String] -> IO [Note]
-getNotes dir Nothing    []    = processNotes notObsolete <$> mdlist dir
-getNotes dir Nothing    terms = processNotes notObsolete <$> mdfind dir terms
-getNotes dir (Just tag) terms = processNotes (f tag)     <$> mdfind dir (tag:terms)
-  where
-    f tag note = notObsolete note && hasTag tag note
+getNotes :: Dir -> [Tag] -> [String] -> IO [Note]
+getNotes dir []   []    = processNotes notObsolete <$> mdlist dir
+getNotes dir []   terms = processNotes notObsolete <$> mdfind dir terms
+-- TODO is this slow compared to using mdfind with tags? Seems fast enough?
+getNotes dir tags []    = processNotes (f tags)    <$> mdlist dir
+  where                            -- TODO respect sJoin status!
+    f tags note = notObsolete note && any (flip hasTag note) tags
+-- TODO Multiple tags broken; since used as search terms to mdfind they
+-- are somehow ANDed (i.e., not must have one of the tags, but also in
+-- some way match all other tags in contents or otherwise).
+getNotes dir tags terms = processNotes (f tags)    <$> mdfind dir terms --(tags <> terms)
+  where                            -- TODO respect sJoin status!
+    f tags note = notObsolete note && any (flip hasTag note) tags
 
 processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
 processNotes f = filter f . rights . map (parse noteParser "" . filename')
 
 getLastNote :: Dir -> IO Note
-getLastNote dir = last <$> getNotes dir Nothing []
+getLastNote dir = last <$> getNotes dir [] []
 
 -- TODO getNote should return a single file like getLast. (What if two files have same ID?
-getNote :: Dir -> String -> IO [Note]
-getNote dir id = processNotes f <$> mdfind dir ["name:"++id]
+getIDNote :: Dir -> String -> IO [Note]
+getIDNote dir id = processNotes f <$> mdfind dir ["name:"++id]
   where
     f = hasID (ID $ splitParts id)  -- TODO maybe check that the provided ID is valid??
