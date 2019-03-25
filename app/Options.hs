@@ -68,7 +68,7 @@ data Options = Options
   }
 
 data Command
-  = List     { all :: Bool, path :: Bool, exec :: Maybe String, mselection :: SelectMulti }
+  = List     { path :: Bool, exec :: Maybe String, mselection :: SelectMulti }
   | Cat      { noheaders :: Bool, id :: String }
   | Edit     { editID :: Maybe String, terms :: [String] }
   | Tags     { popularity :: Bool }
@@ -90,6 +90,7 @@ data SelectMulti = Multi
   , sIDs :: [String]
   , sTAGs :: [String]
   , sEXTs :: [String]
+  , sAll :: Bool
   , sJoin :: Join
   , sTERMs :: [String]
   } deriving (Show, Eq)
@@ -99,6 +100,7 @@ selectMultiOptions = Multi
   <*> selectIDs
   <*> selectTags
   <*> selectExts
+  <*> selectAll
   <*> selectJoin
   <*> selectTerms
   where
@@ -109,6 +111,7 @@ selectMultiOptions = Multi
       (lsh "tag"  't' "Select notes tagged with TAG" <> metavar "TAG")
     selectExts  = many $ strOption
       (lsh "ext" 'e' "Select notes with extension EXT" <> metavar "EXT")
+    selectAll   = switch (lh "all" "Include obsoleted notes in selection")
     selectJoin  = (\b -> if b then AND else OR) <$> switch (lh "and" "Select only notes satisfying ALL specified criteria. If not specified notes satisfying ANY criteria will be selected (except SEARCH TERMS which must all be satisfied).")
     selectTerms = manyArguments "SEARCH TERMS"
 
@@ -117,7 +120,7 @@ data SelectOne = SelectID { sID :: String } | SelectLast deriving (Eq, Show)
 
 selectOneOptions = maybe SelectLast SelectID <$> selectID
   where
-    selectID = strOptional (lsh "id" 'i' ("The ID of the note to select. If no ID is specified the most recent note is selected.") <> metavar "ID")
+    selectID = strOptional (lsh "id" 'i' ("The ID of the note to select. If no ID is specified the most recent note is selected. If several notes share the same ID (see `nn check`) only the first is selected.") <> metavar "ID")
 
 
 
@@ -145,8 +148,7 @@ options = subparser
   ) <|> (None <$> manyArguments "SEARCH TERMS")
 
 listOptions = List
-  <$> switch      (lsh "all"  'a' "Include obsoleted notes in search [NOT IMPLEMENTED]")
-  <*> switch      (lsh "path" 'p' "List full path of note files")
+  <$> switch      (lsh "path" 'p' "List full paths of note files")
   <*> strOptional (lsh "exec" 'e' "Pass notes file paths as arguments to COMMAND" <> metavar "COMMAND")
   <*> selectMultiOptions
 
