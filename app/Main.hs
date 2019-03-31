@@ -84,13 +84,7 @@ main = do
     Obsolete {} -> obsolete dir command
     Rename   {} -> rename   dir command
     Retag    {} -> retag    dir command
-    _           -> none     dir command
 
-
--- List the names of files matching the terms.
-none :: Dir -> Command -> IO ()
-none dir (None []   ) = mapM_ printNote =<< getAllNotes dir
-none dir (None terms) = mapM_ printNote =<< getMDNotes dir terms
 
 -- List the names of files matching the terms.
 list :: Dir -> Command -> IO ()

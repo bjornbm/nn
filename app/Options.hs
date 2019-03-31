@@ -75,7 +75,6 @@ data Command
   | Check    { names :: Bool, references :: Bool }
   | Import   { title :: Maybe String, newTag :: String, file :: String }
   | New      { empty :: Bool, newTag :: String, nameParts :: [String] }
-  | None     { terms :: [String] }
   | Obsolete { dryrun :: Run, mselection :: SelectMany }
   | Rename   { dryrun :: Run, selection :: SelectOne, nameParts :: [String] }
   | Retag    { dryrun :: Run, newTag :: String, mselection :: SelectMany }
@@ -145,7 +144,7 @@ options = subparser
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   <> commandhd "rename"     renameOptions "Change name of selected note"
   <> commandhd "retag"       retagOptions "Change tag of note"
-  ) <|> (None <$> manyArguments "SEARCH TERMS")
+  ) <|> listOptions
 
 listOptions = List
   <$> switch      (lsh "path" 'p' "List full paths of note files")
