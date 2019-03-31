@@ -26,7 +26,7 @@ import System.Process (rawSystem)
 import Text.Megaparsec (parse)
 import Text.Printf (printf)
 
-import NNUtil
+import Util
 import Options
 import Select
 

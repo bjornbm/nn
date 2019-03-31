@@ -1,5 +1,5 @@
 name:                nn
-version:             0.4.0.0
+version:             0.5.0.0
 synopsis:            Command line tool for note taking inspired by Notational Velocity or nvALT.
 description:         Please see README.md
 homepage:            http://github.com/bjornbm/nn#readme
@@ -22,7 +22,7 @@ cabal-version:       >=1.10
 executable nn
   hs-source-dirs:      app
   main-is:             Main.hs
-  other-modules:       NNUtil
+  other-modules:       Util
                      , Options
                      , Select
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N

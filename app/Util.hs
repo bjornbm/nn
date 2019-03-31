@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module NNUtil where
+module Util where
 
 import Control.Arrow ((&&&))
 import Control.Monad.Catch (MonadThrow)
