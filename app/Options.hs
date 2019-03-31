@@ -88,9 +88,9 @@ data SelectMany = SelectMany
   { sLast :: Bool
   , sIDs :: [String]
   , sTAGs :: [String]
-  , sEXTs :: [String]
-  , sAll :: Bool
-  , sJoin :: Join
+  -- , sEXTs :: [String]
+  -- , sAll :: Bool
+  -- , sJoin :: Join
   , sTERMs :: [String]
   } deriving (Show, Eq)
 
@@ -98,9 +98,9 @@ selectManyOptions = SelectMany
   <$> selectLast
   <*> selectIDs
   <*> selectTags
-  <*> selectExts
-  <*> selectAll
-  <*> selectJoin
+  -- <*> selectExts
+  -- <*> selectAll
+  -- <*> selectJoin
   <*> selectTerms
   where
     selectLast  = switch (lsh "last" 'l' "Select the most recent note")
@@ -108,10 +108,10 @@ selectManyOptions = SelectMany
       (lsh "id" 'i' "The ID of a note to select" <> metavar "ID")
     selectTags  = many $ strOption
       (lsh "tag"  't' "Select notes tagged with TAG" <> metavar "TAG")
-    selectExts  = many $ strOption
-      (lsh "ext" 'e' "Select notes with extension EXT" <> metavar "EXT")
-    selectAll   = switch (lh "all" "Include obsoleted notes in selection")
-    selectJoin  = (\b -> if b then AND else OR) <$> switch (lh "and" "Select only notes satisfying ALL specified criteria. If not specified notes satisfying ANY criteria will be selected (except SEARCH TERMS which must all be satisfied).")
+    -- selectExts  = many $ strOption
+    --  (lsh "ext" 'e' "Select notes with extension EXT" <> metavar "EXT")
+    -- selectAll   = switch (lh "all" "Include obsoleted notes in selection")
+    -- selectJoin  = (\b -> if b then AND else OR) <$> switch (lh "and" "Select only notes satisfying ALL specified criteria. If not specified notes satisfying ANY criteria will be selected (except SEARCH TERMS which must all be satisfied).")
     selectTerms = manyArguments "SEARCH TERMS"
 
 
