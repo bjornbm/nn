@@ -27,6 +27,7 @@ import Text.Printf (printf)
 
 import NNUtil
 import Options
+import Select
 
 
 defaultEditor = const (return "vi")
@@ -123,7 +124,7 @@ cat dir (Cat noheaders id) = do
   -- TODO Make this type of file selection default for most actions?
 edit :: Dir -> Command -> IO ()
 edit dir (Edit (Just id) [])    = editNotes dir =<< getIDNote dir id
-edit dir (Edit Nothing   [])    = editNotes dir =<< pure <$> getLastNote dir
+edit dir (Edit Nothing   [])    = editNotes dir =<< getLastNote dir
 edit dir (Edit Nothing   terms) = editNotes dir =<< getNotes dir [] terms
 edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
 
@@ -149,14 +150,9 @@ obsolete dir (Obsolete dry id) = getIDNote dir id >>= modifyNotes dry f dir
 
 -- | Rename a single note.
 rename :: Dir -> Command -> IO ()
-rename dir (Rename dry sel nameParts) = getOneNote dir sel >>= modifyNote dry f dir
+rename dir (Rename dry sel nameParts) = getOneNote dir sel >>= mapM_ (modifyNote dry f dir)
   where
     f n = n { name = unwords nameParts }
-
-
-getOneNote :: Dir -> SelectOne -> IO Note
-getOneNote dir  SelectLast  = getLastNote dir
-getOneNote dir (SelectID i) = head <$> getIDNote dir i
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
@@ -244,29 +240,3 @@ new dir (New empty tag name) = do
       ExitSuccess -> printFilename note
       code        -> print code
     code        -> print code
-
-getNotes :: Dir -> [Tag] -> [String] -> IO [Note]
-getNotes dir []   []    = processNotes notObsolete <$> mdlist dir
-getNotes dir []   terms = processNotes notObsolete <$> mdfind dir terms
--- TODO is this slow compared to using mdfind with tags? Seems fast enough?
-getNotes dir tags []    = processNotes (f tags)    <$> mdlist dir
-  where                            -- TODO respect sJoin status!
-    f tags note = notObsolete note && any (flip hasTag note) tags
--- TODO Multiple tags broken; since used as search terms to mdfind they
--- are somehow ANDed (i.e., not must have one of the tags, but also in
--- some way match all other tags in contents or otherwise).
-getNotes dir tags terms = processNotes (f tags)    <$> mdfind dir terms --(tags <> terms)
-  where                            -- TODO respect sJoin status!
-    f tags note = notObsolete note && any (flip hasTag note) tags
-
-processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
-processNotes f = filter f . rights . map (parse noteParser "" . filename')
-
-getLastNote :: Dir -> IO Note
-getLastNote dir = last <$> getNotes dir [] []
-
--- TODO getNote should return a single file like getLast. (What if two files have same ID?
-getIDNote :: Dir -> String -> IO [Note]
-getIDNote dir id = processNotes f <$> mdfind dir ["name:"++id]
-  where
-    f = hasID (ID $ splitParts id)  -- TODO maybe check that the provided ID is valid??
