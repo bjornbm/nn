@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Select where
+module Select (getOneNote, getManyNotes, getAllNotes, getMDNotes) where
 
 import Control.Monad (join, sequence)
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)

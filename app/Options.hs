@@ -69,16 +69,16 @@ data Options = Options
 
 data Command
   = List     { path :: Bool, exec :: Maybe String, mselection :: SelectMany }
-  | Cat      { noheaders :: Bool, id :: String }
-  | Edit     { editID :: Maybe String, terms :: [String] }
+  | Cat      { noheaders :: Bool, mselection :: SelectMany }
+  | Edit     { mselection :: SelectMany }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
   | Import   { title :: Maybe String, newTag :: String, file :: String }
   | New      { empty :: Bool, newTag :: String, nameParts :: [String] }
   | None     { terms :: [String] }
-  | Obsolete { dryrun :: Run, id :: String }
+  | Obsolete { dryrun :: Run, mselection :: SelectMany }
   | Rename   { dryrun :: Run, selection :: SelectOne, nameParts :: [String] }
-  | Retag    { dryrun :: Run, id :: String, newTag :: String }
+  | Retag    { dryrun :: Run, newTag :: String, mselection :: SelectMany }
   deriving (Show) -- , Data, Typeable)
 
 data Run = Dry | Full deriving (Show, Eq)
@@ -155,11 +155,10 @@ listOptions = List
 catOptions :: Parser Command
 catOptions = Cat
   <$> switch       (lsh "noheaders" 'n' "Do not include headers in output")
-  <*> argument str (help "The ID of the note to cat" <> metavar "ID")
+  <*> selectManyOptions
 
 editOptions = Edit
-  <$> strOptional (lsh "id" 'i' "The ID of the note to edit. If no ID or terms are specified the most recent note is selected." <> metavar "ID")
-  <*> manyArguments "SEARCH TERMS"
+  <$> selectManyOptions
 
 tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")
@@ -187,7 +186,7 @@ newOptions = New
 
 obsoleteOptions = Obsolete
   <$> dryswitch
-  <*> strOption (lsh "id" 'i' "The ID of the note to mark as obsolete" <> metavar "ID")
+  <*> selectManyOptions
 
 renameOptions = Rename
   <$> dryswitch
@@ -196,8 +195,8 @@ renameOptions = Rename
 
 retagOptions = Retag
   <$> dryswitch
-  <*> strOption (lsh "id" 'i' "The ID of the note to retag" <> metavar "ID")
   <*> argument str (metavar "TAG")
+  <*> selectManyOptions
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
         <> "Different behaviors are invoked by different subcommands. "

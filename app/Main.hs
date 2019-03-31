@@ -108,8 +108,8 @@ tags dir (Tags pop) = do
          else mapM_ (putStrLn . snd) ts
 
 cat :: Dir -> Command -> IO ()
-cat dir (Cat noheaders id) = do
-  notes <- getMDNotes dir ["name:"++id]  -- TODO not solid. TODO use tag
+cat dir (Cat noheaders sel) = do
+  notes <- getManyNotes dir sel
   contents <- mapM (T.readFile . notePath dir) notes
   if noheaders
      then T.putStrLn $ T.intercalate "\n" contents
@@ -124,10 +124,7 @@ cat dir (Cat noheaders id) = do
   --
   -- TODO Make this type of file selection default for most actions?
 edit :: Dir -> Command -> IO ()
-edit dir (Edit (Just id) [])    = editNotes dir . maybeToList =<< getIDNote dir id
-edit dir (Edit Nothing   [])    = editNotes dir . maybeToList =<< getLastNote dir
-edit dir (Edit Nothing   terms) = editNotes dir =<< getMDNotes dir terms
-edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
+edit dir (Edit sel)    = editNotes dir =<< getManyNotes dir sel
 
 editNotes :: Dir -> [Note] -> IO ()
 editNotes dir notes = do
@@ -145,7 +142,7 @@ editNotes dir notes = do
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
 obsolete :: Dir -> Command -> IO ()
-obsolete dir (Obsolete dry id) = getIDNote dir id >>= modifyNotes dry f dir . maybeToList
+obsolete dir (Obsolete dry sel) = getManyNotes dir sel >>= modifyNotes dry f dir
   where
     f n = n { status = Obsoleted }
 
@@ -158,7 +155,7 @@ rename dir (Rename dry sel nameParts) = getOneNote dir sel >>= mapM_ (modifyNote
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
 retag :: Dir -> Command -> IO ()
-retag dir (Retag dry id newTag) = getIDNote dir id >>= modifyNotes dry f dir . maybeToList
+retag dir (Retag dry newTag sel) = getManyNotes dir sel >>= modifyNotes dry f dir
   where
     f n = n { tag = newTag }
 
