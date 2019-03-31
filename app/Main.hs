@@ -26,6 +26,7 @@ import System.Process (rawSystem)
 import Text.Megaparsec (parse)
 import Text.Printf (printf)
 
+import ID
 import Util
 import Options
 import Select
@@ -60,9 +61,9 @@ defaultEditor = const (return "vi")
 -  When listing, indicate empty files (or number of lines in file?)
 -  Allow multiple --tag (should they be OR or AND (only meaningful with support for multiple tags))
 -  nn retag command allow to retag by search terms in addition to ID?
--  makeID to make greater ID if already taken?
--  check to identify identical IDs.
--  List in format "ID [tag] title" (without extension)
++  makeID to make greater ID if already taken?
++  check to identify identical IDs.
++  List in format "ID [tag] title" (without extension)
 -}
 
 
@@ -214,7 +215,7 @@ importC dir (Import Nothing tag file) = do
 
 importC' :: Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
-  id <- makeID
+  id <- makeAvailableID dir
   let note = Note Current id tag title (Just $ fileExtension file)
   newfile <- noteAbsFile dir note
   copyFile file newfile
@@ -224,7 +225,7 @@ importC' dir tag title file = do
 
 new :: Dir -> Command -> IO ()
 new dir (New empty tag name) = do
-  id <- makeID
+  id <- makeAvailableID dir
   let note = Note Current id tag (unwords name) (Just ".txt")
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
