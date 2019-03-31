@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Select (getOneNote, getManyNotes, getAllNotes, getMDNotes) where
+module Select (getOneNote, getManyNotes, getAllNotes, getMDNotes, getBadFiles) where
 
 import Control.Monad (join, sequence)
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
@@ -65,6 +65,9 @@ getIDNote dir id = safe head . processNotes f <$> mdfind dir ["name:"++id]
 -- | Get all notes in the DB.
 getAllNotes :: Dir -> IO [Note]
 getAllNotes dir = processNotes notObsolete <$> mdlist dir  -- TODO allow obsolete
+
+getBadFiles :: Dir -> IO [Path Abs File]
+getBadFiles dir = filter (isLeft . parse noteParser "" . filename') <$> mdlist dir
 
 -- | Get all notes which match the metadata terms
 getMDNotes :: Dir -> [String] -> IO [Note]

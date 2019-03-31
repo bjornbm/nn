@@ -175,37 +175,33 @@ modifyNotes Full f dir = mapM_  -- Full run
          >> printFilename (f note))  -- Show the new filename.
 
 -- List files with bad names.
-checkNames :: [Path Abs File] -> IO ()
-checkNames files = do
+checkNames :: Dir -> IO ()
+checkNames dir = mapM_ (T.putStrLn . filename') =<< getBadFiles dir
   -- Bad filenamess
-  mapM_ T.putStrLn $ filter (isLeft . parse noteParser "")
-                   $ map filename' files
 
-checkDuplicateIDs :: [Path Abs File] -> IO ()
-checkDuplicateIDs = mapM_ (mapM_ (T.putStrLn . noteFilenameT)) . findDuplicateIDs
+checkDuplicateIDs :: Dir -> IO ()
+checkDuplicateIDs dir = mapM_ (mapM_ (T.putStrLn . noteFilenameT)) . findDuplicateIDs =<< getAllNotes dir
   where
-    findDuplicateIDs :: [Path Abs File] -> [[Note]]
-    findDuplicateIDs = filter ((>1) . length) . groupBy equalIDs . notes
-    notes = rights . map (parse noteParser "" . filename')
+    findDuplicateIDs :: [Note] -> [[Note]]
+    findDuplicateIDs = filter ((>1) . length) . groupBy equalIDs
     equalIDs n1 n2 = nid n1 == nid n2
 
 -- List files with bad references.
-checkRefs files = putStrLn "NOT IMPLEMENTED" -- TODO
+checkRefs dir = putStrLn "NOT IMPLEMENTED" -- TODO
 
 -- List bad files with headers.
 check dir (Check names refs) = do
-  files <- mdlist dir
   putStrLn "Badly named files"
   putStrLn "-----------------"
-  checkNames files
+  checkNames dir
   putStrLn ""
   putStrLn "Files with duplicate identifiers"
   putStrLn "--------------------------------"
-  checkDuplicateIDs files
+  checkDuplicateIDs dir
   putStrLn ""
   putStrLn "Files with bad references"
   putStrLn "-------------------------"
-  checkRefs files
+  checkRefs dir
 
 
 -- | Import a pre-existing file, optionally with a new title.
