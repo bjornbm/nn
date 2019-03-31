@@ -43,26 +43,7 @@ getManyNotes dir SelectMany {..} = do
           let xs = if null sTAGs then ns else filter (hasAnyTag sTAGs) ns
           let ys = if sLast then maybeToList $ safe last xs else xs
           return . sort $ nis ++ ys
-  -- TODO
 
-getTagNotes :: Dir -> [Tag] -> IO [Note]
-getTagNotes dir tags = processNotes (f tags) <$> mdlist dir
-  where                            -- TODO respect sJoin status?!
-    f tags note = notObsolete note && any (flip hasTag note) tags
-
-getNotes :: Dir -> [Tag] -> [String] -> IO [Note]
-getNotes dir []   []    = processNotes notObsolete <$> mdlist dir
-getNotes dir []   terms = processNotes notObsolete <$> mdfind dir terms
--- TODO is this slow compared to using mdfind with tags? Seems fast enough?
-getNotes dir tags []    = processNotes (f tags)    <$> mdlist dir
-  where                            -- TODO respect sJoin status!
-    f tags note = notObsolete note && any (flip hasTag note) tags
--- TODO Multiple tags broken; since used as search terms to mdfind they
--- are somehow ANDed (i.e., not must have one of the tags, but also in
--- some way match all other tags in contents or otherwise).
-getNotes dir tags terms = processNotes (f tags)    <$> mdfind dir terms --(tags <> terms)
-  where                            -- TODO respect sJoin status!
-    f tags note = notObsolete note && any (flip hasTag note) tags
 
 processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
 processNotes f = filter f . rights . map (parse noteParser "" . filename')

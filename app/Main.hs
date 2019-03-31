@@ -89,7 +89,7 @@ main = do
 
 -- List the names of files matching the terms.
 list :: Dir -> Command -> IO ()
-list dir (None terms) = mapM_ printNote =<< getNotes dir []    terms
+list dir (None terms) = mapM_ printNote =<< getMDNotes dir terms
 list dir (List path Nothing sel) = getManyNotes dir sel >>=
   mapM_ (if path then putStrLn . notePath dir else printNote)
 
@@ -109,7 +109,7 @@ tags dir (Tags pop) = do
 
 cat :: Dir -> Command -> IO ()
 cat dir (Cat noheaders id) = do
-  notes <- getNotes dir [] ["name:"++id]  -- TODO not solid. TODO use tag
+  notes <- getMDNotes dir ["name:"++id]  -- TODO not solid. TODO use tag
   contents <- mapM (T.readFile . notePath dir) notes
   if noheaders
      then T.putStrLn $ T.intercalate "\n" contents
@@ -126,7 +126,7 @@ cat dir (Cat noheaders id) = do
 edit :: Dir -> Command -> IO ()
 edit dir (Edit (Just id) [])    = editNotes dir . maybeToList =<< getIDNote dir id
 edit dir (Edit Nothing   [])    = editNotes dir . maybeToList =<< getLastNote dir
-edit dir (Edit Nothing   terms) = editNotes dir =<< getNotes dir [] terms
+edit dir (Edit Nothing   terms) = editNotes dir =<< getMDNotes dir terms
 edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
 
 editNotes :: Dir -> [Note] -> IO ()
