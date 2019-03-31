@@ -71,10 +71,10 @@ hasTag t = (t ==) . tag
 hasID :: ID -> Note -> Bool
 hasID  i = (i ==) . nid
 
--- | 'parts' breaks a String up into a list of parts, which were delimited
+-- | 'splitParts' breaks a String up into a list of parts, which were delimited
 -- by underscores.
 --
--- >>> parts "Lorem_ipsum_dolor"
+-- >>> splitParts "Lorem_ipsum_dolor"
 -- ["Lorem","ipsum","dolor"]
 splitParts :: String -> [String]
 splitParts s = case dropWhile isSep s of
@@ -192,19 +192,19 @@ extP = optional $ ("." <>) <$> (char '.' *> many alphaNumChar)
   -- TODO: Separate extension from title.
   --
   -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
-  -- Note Obsoleted (ID ["2019","03","18","1009"]) "note" "The title" (Just ".md")
+  -- Note {status = Obsoleted, nid = ID ["2019","03","18","1009"], tag = "note", name = "The title", ext = Just ".md"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title" (Just ".txt")
+  -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "The title", ext = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "www.klintenas.se" (Just ".txt")
+  -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt~")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "www.klintenas.se" (Just ".txt")
+   -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title")
-  -- Note Current (ID ["2019","03","18","1009"]) "note" "The title" Nothing
+  -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "The title", ext = Nothing}
 noteParser :: Parser Note
 noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 
