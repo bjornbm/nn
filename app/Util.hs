@@ -240,6 +240,15 @@ countTags = map (length &&& head) . group . sort . map tag
 makeID :: IO ID
 makeID = ID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
 
+-- | Provide the next valid ID (one minute later timestamp).
+--
+-- >>> nextID (ltID 2019 12 31 23 58)
+-- ID 2019-12-31 23:59:00
+--
+-- >>> nextID (ltID 2019 12 31 23 59)
+-- ID 2020-01-01 00:00:00
+nextID :: ID -> ID
+nextID (ID t) = (ID . utcToLocalTime utc . addUTCTime 60 . localTimeToUTC utc) t
 
 -- | Check in notes with RCS. Use default description/message.
 --checkinNotes :: Dir -> [Note] -> IO ExitCode
