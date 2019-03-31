@@ -45,8 +45,8 @@ getManyNotes dir SelectMany {..} = do
           return . sort $ nis ++ ys
 
 
-processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
-processNotes f = filter f . rights . map (parse noteParser "" . filename')
+parseNotes :: [Path Abs File] -> [Note]
+parseNotes = rights . map (parse noteParser "" . filename')
 
 -- | Get the note with most recent timestamp.
 -- Returns @Nothing@ if the note database is empty.
@@ -58,17 +58,17 @@ getLastNote dir = safe last <$> getAllNotes dir
 -- Returns @Nothing@ if no note matches the ID.
 -- If two notes have the same ID only one of them will be returned.
 getIDNote :: Dir -> String -> IO (Maybe Note)
-getIDNote dir id = safe head . processNotes f <$> mdfind dir ["name:"++id]
+getIDNote dir id = safe head . filter f . parseNotes <$> mdfind dir ["name:"++id]
   where
     f = hasID' id  -- TODO maybe check that the provided ID is valid??
 
 -- | Get all notes in the DB.
 getAllNotes :: Dir -> IO [Note]
-getAllNotes dir = processNotes notObsolete <$> mdlist dir  -- TODO allow obsolete
+getAllNotes dir = filter notObsolete . parseNotes <$> mdlist dir  -- TODO allow obsolete
 
 getBadFiles :: Dir -> IO [Path Abs File]
 getBadFiles dir = filter (isLeft . parse noteParser "" . filename') <$> mdlist dir
 
 -- | Get all notes which match the metadata terms
 getMDNotes :: Dir -> [String] -> IO [Note]
-getMDNotes dir terms = processNotes notObsolete <$> mdfind dir terms
+getMDNotes dir terms = filter notObsolete . parseNotes <$> mdfind dir terms
