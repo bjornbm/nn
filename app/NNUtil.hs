@@ -71,6 +71,17 @@ hasTag t = (t ==) . tag
 hasID :: ID -> Note -> Bool
 hasID  i = (i ==) . nid
 
+-- | True if Note matches any of the tags.
+--
+-- >>> hasAnyTag ["a","note"] (Note Current (ID []) "note" "" Nothing)
+-- True
+-- >>> hasAnyTag ["a","b"] (Note Current (ID []) "note" "" Nothing)
+-- False
+-- >>> hasAnyTag [] (Note Current (ID []) "note" "" Nothing)
+-- False
+hasAnyTag :: [Tag] -> Note -> Bool
+hasAnyTag tags note = any (flip hasTag note) tags
+
 -- | 'splitParts' breaks a String up into a list of parts, which were delimited
 -- by underscores.
 --

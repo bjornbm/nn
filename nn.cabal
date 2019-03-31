@@ -24,6 +24,7 @@ executable nn
   main-is:             Main.hs
   other-modules:       NNUtil
                      , Options
+                     , Select
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , exceptions
