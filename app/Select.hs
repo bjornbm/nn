@@ -16,8 +16,8 @@ getOneNote dir  SelectLast  = getLastNote dir
 getOneNote dir (SelectID i) = getIDNote dir i
 
 
-getManyNotes :: Dir -> SelectMulti -> IO [Note]
-getManyNotes dir Multi {..} = catMaybes <$> sequence
+getManyNotes :: Dir -> SelectMany -> IO [Note]
+getManyNotes dir SelectMany {..} = catMaybes <$> sequence
   ( map (getIDNote dir) sIDs
   ++ [if sLast then getLastNote dir else return Nothing]
 --  ++ map (getNotes sTAGs sTERMs)

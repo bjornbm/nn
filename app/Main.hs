@@ -90,11 +90,11 @@ main = do
 -- List the names of files matching the terms.
 list :: Dir -> Command -> IO ()
 list dir (None terms) = mapM_ printNote =<< getNotes dir []    terms
-list dir (List path Nothing Multi{..}) = getNotes dir sTAGs sTERMs >>=
+list dir (List path Nothing SelectMany{..}) = getNotes dir sTAGs sTERMs >>=
   mapM_ (if path then putStrLn . notePath dir else printNote)
 
 -- Apply command specified with --exec to files matching the terms.
-list dir (List _ (Just exec) Multi{..}) = do
+list dir (List _ (Just exec) SelectMany{..}) = do
   notes <- getNotes dir sTAGs sTERMs
   let cmd:args = words exec
   rawSystem cmd (args ++ map (notePath dir) notes) >>= \case

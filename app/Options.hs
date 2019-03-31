@@ -68,7 +68,7 @@ data Options = Options
   }
 
 data Command
-  = List     { path :: Bool, exec :: Maybe String, mselection :: SelectMulti }
+  = List     { path :: Bool, exec :: Maybe String, mselection :: SelectMany }
   | Cat      { noheaders :: Bool, id :: String }
   | Edit     { editID :: Maybe String, terms :: [String] }
   | Tags     { popularity :: Bool }
@@ -85,7 +85,7 @@ data Run = Dry | Full deriving (Show, Eq)
 
 data Join = AND | OR deriving (Show, Eq)
 
-data SelectMulti = Multi
+data SelectMany = SelectMany
   { sLast :: Bool
   , sIDs :: [String]
   , sTAGs :: [String]
@@ -95,7 +95,7 @@ data SelectMulti = Multi
   , sTERMs :: [String]
   } deriving (Show, Eq)
 
-selectMultiOptions = Multi
+selectManyOptions = SelectMany
   <$> selectLast
   <*> selectIDs
   <*> selectTags
@@ -150,7 +150,7 @@ options = subparser
 listOptions = List
   <$> switch      (lsh "path" 'p' "List full paths of note files")
   <*> strOptional (lsh "exec" 'e' "Pass notes file paths as arguments to COMMAND" <> metavar "COMMAND")
-  <*> selectMultiOptions
+  <*> selectManyOptions
 
 catOptions :: Parser Command
 catOptions = Cat
