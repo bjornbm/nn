@@ -60,7 +60,7 @@ getLastNote dir = safe last <$> getAllNotes dir
 getIDNote :: Dir -> String -> IO (Maybe Note)
 getIDNote dir id = safe head . processNotes f <$> mdfind dir ["name:"++id]
   where
-    f = hasID (ID $ splitParts id)  -- TODO maybe check that the provided ID is valid??
+    f = hasID' id  -- TODO maybe check that the provided ID is valid??
 
 -- | Get all notes in the DB.
 getAllNotes :: Dir -> IO [Note]

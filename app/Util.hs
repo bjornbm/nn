@@ -24,6 +24,7 @@ import Path.IO (listDir, renameFile)
 import System.Process
 import Text.Megaparsec
 import Text.Megaparsec.Char
+import Text.Printf (printf)
 
 
 -- | Find files. We use the ASCII NULL terminated paths since file
@@ -50,7 +51,7 @@ mdlist dir = do d <- parseAbsDir dir; sortOn filename . filter (myfilter . fromA
 type Dir = FilePath
 
 data Status = Obsoleted | Current deriving (Eq, Ord, Show)
-newtype ID = ID [String] deriving (Eq, Ord, Show)
+newtype ID = ID LocalTime deriving (Eq, Ord, Show)
 type Tag = String
 type Name = String
 type Contents = Text
@@ -67,61 +68,63 @@ notObsolete :: Note -> Bool
 notObsolete = (/= Obsoleted) . status
 
 hasTag :: Tag -> Note -> Bool
-hasTag t = (t ==) . tag
+hasTag t Note {..} = tag == t
+
 hasID :: ID -> Note -> Bool
-hasID  i = (i ==) . nid
+hasID i Note {..} = nid == i
+
+hasID' :: String -> Note -> Bool
+hasID' s n = case parseID s of
+  Nothing -> False
+  Just i  -> hasID i n
 
 -- | True if Note matches any of the tags.
 --
--- >>> hasAnyTag ["a","note"] (Note Current (ID []) "note" "" Nothing)
+-- >>> hasAnyTag ["a","note"] (Note Current (ltID 1 1 1 1 1) "note" "" Nothing)
 -- True
--- >>> hasAnyTag ["a","b"] (Note Current (ID []) "note" "" Nothing)
+-- >>> hasAnyTag ["a","b"] (Note Current (ltID 1 1 1 1 1) "note" "" Nothing)
 -- False
--- >>> hasAnyTag [] (Note Current (ID []) "note" "" Nothing)
+-- >>> hasAnyTag [] (Note Current (ltID 1 1 1 1 1) "note" "" Nothing)
 -- False
 hasAnyTag :: [Tag] -> Note -> Bool
 hasAnyTag tags note = any (flip hasTag note) tags
 
--- | 'splitParts' breaks a String up into a list of parts, which were delimited
--- by underscores.
---
--- >>> splitParts "Lorem_ipsum_dolor"
--- ["Lorem","ipsum","dolor"]
-splitParts :: String -> [String]
-splitParts s = case dropWhile isSep s of
-                  "" -> []
-                  s' -> w : splitParts s''
-                    where (w, s'') = break isSep s'
-          where
-            isSep = (== '_')
+-- | The format of the ID string.
+idFormat :: String
+idFormat = "%Y_%m_%d_%H%M"
+
+-- | Parse an ID string.
+parseID :: Monad m => String -> m ID
+parseID = fmap ID . parseTimeM False defaultTimeLocale idFormat
 
 -- | Convert a note ID to its string representation.
   --
-  -- >>> showID (ID ["2019", "03", "18", "1009"])
+  -- >>> formatID (ltID 2019 03 18 10 09)
   -- "2019_03_18_1009"
-showID :: ID -> String
-showID (ID parts) = L.intercalate "_" parts
+formatID :: ID -> String
+formatID (ID t) = formatTime defaultTimeLocale idFormat t
 
-showStatus :: Status -> String
-showStatus Obsoleted = "+"
-showStatus _         = ""
+formatStatus :: Status -> String
+formatStatus Obsoleted = "+"
+formatStatus _         = ""
+
+
+ltID y m d h mn = ID $ LocalTime (fromGregorian y m d) (TimeOfDay h mn 0)
 
 -- | Create the filename of a note.
   --
-  -- >>> noteFilename (Note Current (ID ["2019", "03", "18", "1009"]) "note" "The title" (Just ".txt"))
+  -- >>> noteFilename (Note Current (ltID 2019 03 18 10 09) "note" "The title" (Just ".txt"))
   -- "2019_03_18_1009-note-The title.txt"
-  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title" (Just ".md"))
+  -- >>> noteFilename (Note Obsoleted (ltID 2019 03 18 10 09) "note" "The title" (Just ".md"))
   -- "+2019_03_18_1009-note-The title.md"
-  -- >>> noteFilename (Note Obsoleted (ID ["2019", "03", "18", "1009"]) "note" "The title.md" Nothing)
+  -- >>> noteFilename (Note Obsoleted (ltID 2019 03 18 10 09) "note" "The title.md" Nothing)
   -- "+2019_03_18_1009-note-The title.md"
 noteFilename :: Note -> String
 noteFilename = unpack . noteFilenameT
 
 noteFilenameT :: Note -> Text
-noteFilenameT Note { .. }
-  = (normalize NFC . pack) $ showStatus status
-    <> showID nid <> "-" <> tag <> "-" <> name  -- The interesting parts
-    <> fromMaybe "" ext
+noteFilenameT Note { .. } = (normalize NFC . pack) $ printf "%s%s-%s-%s%s"
+  (formatStatus status) (formatID nid) tag name (fromMaybe "" ext)
 
 notePath :: Dir -> Note -> FilePath
 -- TODO less secure?:
@@ -150,13 +153,21 @@ type Parser = Parsec Void Text
 obsP :: Parser Status
 obsP  = maybe Current (const Obsoleted) <$> optional (char '+')
 
+-- |
+--
+-- >>> parseTest idP $ pack "2019_02_03_1345"
+-- ID 2019-02-03 13:45:00
+--
+-- >>> parseTest idP $ pack "2019_02_03_1360"
+-- ID 2019-02-03 13:60:00
 idP :: Parser ID
 idP = let sep = char '_' in do
   yyyy <-        count 4 digitChar
   mm   <- sep *> count 2 digitChar
   dd   <- sep *> count 2 digitChar
-  hhmm <- sep *> count 4 digitChar
-  return $ ID [yyyy, mm, dd, hhmm]
+  hh   <- sep *> count 2 digitChar
+  mn   <-        count 2 digitChar
+  parseID (printf "%s_%s_%s_%s%s" yyyy mm dd hh mn)
 
 tagP :: Parser String
 tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
@@ -203,19 +214,19 @@ extP = optional $ ("." <>) <$> (char '.' *> many alphaNumChar)
   -- TODO: Separate extension from title.
   --
   -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
-  -- Note {status = Obsoleted, nid = ID ["2019","03","18","1009"], tag = "note", name = "The title", ext = Just ".md"}
+  -- Note {status = Obsoleted, nid = ID 2019-03-18 10:09:00, tag = "note", name = "The title", ext = Just ".md"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
-  -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "The title", ext = Just ".txt"}
+  -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "The title", ext = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt")
-  -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
+  -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt~")
-   -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
+   -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title")
-  -- Note {status = Current, nid = ID ["2019","03","18","1009"], tag = "note", name = "The title", ext = Nothing}
+  -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "The title", ext = Nothing}
 noteParser :: Parser Note
 noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 
@@ -227,10 +238,7 @@ countTags = map (length &&& head) . group . sort . map tag
 -- | Create an ID for a new file. Specifically a time stamp
   -- based on the current local time with minute precision.
 makeID :: IO ID
-makeID = localTimeToID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
-
-localTimeToID :: LocalTime -> ID
-localTimeToID t = ID $ map (\fmt -> formatTime undefined fmt t) ["%Y", "%m", "%d", "%H%M"]
+makeID = ID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
 
 
 -- | Check in notes with RCS. Use default description/message.
@@ -286,7 +294,8 @@ printFilename = putStrLn . noteFilename
 
 -- | Show the note
 showNote :: Note -> String
-showNote Note { .. } = showStatus status <> showID nid <> " [" <> tag <> "] " <> name
+showNote Note { .. } = printf "%s%s [%s] %s"
+  (formatStatus status) (formatID nid) tag name
 
 -- | Print the note
 printNote :: Note -> IO ()
