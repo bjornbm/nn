@@ -4,20 +4,22 @@ module Select where
 
 import Control.Monad (join, sequence)
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
+import Data.Maybe (catMaybes)
 import Path (Path (..), Abs (..), Rel (..), File (..))
 import Text.Megaparsec (parse)
 
 import NNUtil
 import Options
 
-getOneNote :: Dir -> SelectOne -> IO [Note]
+getOneNote :: Dir -> SelectOne -> IO (Maybe Note)
 getOneNote dir  SelectLast  = getLastNote dir
 getOneNote dir (SelectID i) = getIDNote dir i
 
+
 getManyNotes :: Dir -> SelectMulti -> IO [Note]
-getManyNotes dir Multi {..} = join <$> sequence
+getManyNotes dir Multi {..} = catMaybes <$> sequence
   ( map (getIDNote dir) sIDs
---  ++ if sLast then pure <$> getLastNote dir else pure []
+  ++ [if sLast then getLastNote dir else return Nothing]
 --  ++ map (getNotes sTAGs sTERMs)
   )
 
@@ -41,12 +43,16 @@ processNotes :: (Note -> Bool) -> [Path Abs File] -> [Note]
 processNotes f = filter f . rights . map (parse noteParser "" . filename')
 
 -- | Get the note with most recent timestamp.
--- TODO: Should return Maybe Note? (May fail if empty note DB.
-getLastNote :: Dir -> IO [Note]
-getLastNote dir = (\l -> if null l then [] else [last l]) <$> getNotes dir [] []
+-- Returns @Nothing@ if the note database is empty.
+-- If two notes share the latest timestamp only one of them will be returned.
+getLastNote :: Dir -> IO (Maybe Note)
+getLastNote dir = safe last <$> getNotes dir [] []
 
--- TODO getNote should return Maybe Note? (What if two files have same ID?)
-getIDNote :: Dir -> String -> IO [Note]
-getIDNote dir id = processNotes f <$> mdfind dir ["name:"++id]
+
+-- | Get the note with the given ID.
+-- Returns @Nothing@ if no note matches the ID.
+-- If two notes have the same ID only one of them will be returned.
+getIDNote :: Dir -> String -> IO (Maybe Note)
+getIDNote dir id = safe head . processNotes f <$> mdfind dir ["name:"++id]
   where
     f = hasID (ID $ splitParts id)  -- TODO maybe check that the provided ID is valid??

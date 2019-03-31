@@ -281,3 +281,19 @@ showNote Note { .. } = showStatus status <> showID nid <> " [" <> tag <> "] " <>
 printNote :: Note -> IO ()
 printNote = putStrLn . showNote
 
+-- | Apply a function to a list.
+-- If the list is empty @Nothing@ is returned.
+-- If the list is non-empty the function is applied.
+--
+-- >>> safe head []
+-- Nothing
+-- >>> safe head [1]
+-- Just 1
+-- >>> safe null []
+-- Nothing
+-- >>> safe null [1]
+-- Just False
+safe :: ([a] -> b) -> [a] -> Maybe b
+safe f [] = Nothing
+safe f xs = Just $ f xs
+

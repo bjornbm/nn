@@ -7,6 +7,7 @@
 import Control.Applicative
 import Data.Either (isLeft, isRight, fromRight, rights, lefts)
 import Data.List (sortOn, groupBy)
+import Data.Maybe (catMaybes, maybeToList)
 import Data.Ord (Down (Down))
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack, isSuffixOf)
@@ -123,8 +124,8 @@ cat dir (Cat noheaders id) = do
   --
   -- TODO Make this type of file selection default for most actions?
 edit :: Dir -> Command -> IO ()
-edit dir (Edit (Just id) [])    = editNotes dir =<< getIDNote dir id
-edit dir (Edit Nothing   [])    = editNotes dir =<< getLastNote dir
+edit dir (Edit (Just id) [])    = editNotes dir . maybeToList =<< getIDNote dir id
+edit dir (Edit Nothing   [])    = editNotes dir . maybeToList =<< getLastNote dir
 edit dir (Edit Nothing   terms) = editNotes dir =<< getNotes dir [] terms
 edit dir (Edit (Just _)  (_:_)) = error "Specify either ID or search terms, not both."  -- TODO: graceful.
 
@@ -144,7 +145,7 @@ editNotes dir notes = do
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
 obsolete :: Dir -> Command -> IO ()
-obsolete dir (Obsolete dry id) = getIDNote dir id >>= modifyNotes dry f dir
+obsolete dir (Obsolete dry id) = getIDNote dir id >>= modifyNotes dry f dir . maybeToList
   where
     f n = n { status = Obsoleted }
 
@@ -157,7 +158,7 @@ rename dir (Rename dry sel nameParts) = getOneNote dir sel >>= mapM_ (modifyNote
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
 retag :: Dir -> Command -> IO ()
-retag dir (Retag dry id newTag) = getIDNote dir id >>= modifyNotes dry f dir
+retag dir (Retag dry id newTag) = getIDNote dir id >>= modifyNotes dry f dir . maybeToList
   where
     f n = n { tag = newTag }
 
