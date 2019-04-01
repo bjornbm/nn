@@ -1,5 +1,4 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE LambdaCase #-}
 
 {-
 
@@ -120,7 +119,7 @@ data SelectOne = SelectID { sID :: String } | SelectLast deriving (Eq, Show)
 
 selectOneOptions = maybe SelectLast SelectID <$> selectID
   where
-    selectID = strOptional (lsh "id" 'i' ("The ID of the note to select. If no ID is specified the most recent (non-obsolete) note is selected. If several notes share the same ID (see `nn check`) only the first is selected.") <> metavar "ID")
+    selectID = strOptional (lsh "id" 'i' "The ID of the note to select. If no ID is specified the most recent (non-obsolete) note is selected. If several notes share the same ID (see `nn check`) only the first is selected." <> metavar "ID")
 
 
 

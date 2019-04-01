@@ -164,7 +164,6 @@ changeID dir ChangeID {..} = do
   new <- case newID of
     Nothing -> makeAvailableID dir
     Just i  -> parseID i >>= firstAvailableID dir
-  return ()
   notes <- maybeToList <$> getOneNote dir selection
   modifyNotes dryrun (f new) dir notes
   where

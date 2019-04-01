@@ -87,7 +87,7 @@ hasID' s n = case parseID s of
 -- >>> hasAnyTag [] (Note Current (ltID 1 1 1 1 1) "note" "" Nothing)
 -- False
 hasAnyTag :: [Tag] -> Note -> Bool
-hasAnyTag tags note = any (flip hasTag note) tags
+hasAnyTag tags note = any (`hasTag` note) tags
 
 -- | The format of the ID string.
 idFormat :: String

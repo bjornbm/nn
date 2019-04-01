@@ -27,7 +27,7 @@ getOneNote dir (SelectID i) = getIDNote dir i
 -- If --last is specified only the last file of the narrowed down list is
 -- selected and all others are discarded.
 getManyNotes :: Dir -> SelectMany -> IO [Note]
-getManyNotes dir SelectMany {..} = do
+getManyNotes dir SelectMany {..} =
   if not sLast && null sIDs && null sTAGs && null sTERMs
     then  -- No options specified, default to listing all notes
       getAllNotes dir
