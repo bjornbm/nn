@@ -84,6 +84,7 @@ main = do
     Obsolete {} -> obsolete dir command
     Rename   {} -> rename   dir command
     Retag    {} -> retag    dir command
+    ChangeID {} -> changeID dir command
 
 
 -- List the names of files matching the terms.
@@ -156,6 +157,18 @@ retag :: Dir -> Command -> IO ()
 retag dir (Retag dry newTag sel) = getManyNotes dir sel >>= modifyNotes dry f dir
   where
     f n = n { tag = newTag }
+
+-- | Change the ID of a file.
+changeID :: Dir -> Command -> IO ()
+changeID dir ChangeID {..} = do
+  new <- case newID of
+    Nothing -> makeAvailableID dir
+    Just i  -> parseID i >>= firstAvailableID dir
+  return ()
+  notes <- maybeToList <$> getOneNote dir selection
+  modifyNotes dryrun (f new) dir notes
+  where
+    f new n = n { nid = new }
 
 modifyNote :: Run -> (Note -> Note) -> Dir -> Note -> IO ()
 modifyNote run f dir = modifyNotes run f dir . pure

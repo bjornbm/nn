@@ -78,6 +78,7 @@ data Command
   | Obsolete { dryrun :: Run, mselection :: SelectMany }
   | Rename   { dryrun :: Run, selection :: SelectOne, nameParts :: [String] }
   | Retag    { dryrun :: Run, newTag :: String, mselection :: SelectMany }
+  | ChangeID { dryrun :: Run, newID :: Maybe String, selection :: SelectOne }
   deriving (Show) -- , Data, Typeable)
 
 data Run = Dry | Full deriving (Show, Eq)
@@ -144,6 +145,7 @@ options = subparser
   <> commandhd "obsolete" obsoleteOptions "Mark notes as obsolete"
   <> commandhd "rename"     renameOptions "Change name of selected note"
   <> commandhd "retag"       retagOptions "Change tag of note"
+  <> commandhd "changeid" changeIDOptions "Change ID of selected note"  -- ID -> timestamp?
   ) <|> listOptions
 
 listOptions = List
@@ -196,6 +198,11 @@ retagOptions = Retag
   <$> dryswitch
   <*> argument str (metavar "TAG")
   <*> selectManyOptions
+
+changeIDOptions = ChangeID
+  <$> dryswitch
+  <*> strOptional (lsh "newid" 'n' "The new ID to assign to the note. If no new ID is specified the current time will be used. If the new ID is already in use the next available ID will be assigned to the note." <> metavar "NEW ID")
+  <*> selectOneOptions
 
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
         <> "Different behaviors are invoked by different subcommands. "
