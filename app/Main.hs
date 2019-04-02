@@ -68,40 +68,39 @@ main = do
   -- with a single command. The current implementation just have lots
   -- of partial functions!
   case command of
-    List     {} -> list     dir command
-    Cat      {} -> cat      dir command
-    Tags     {} -> tags     dir command
-    Check    {} -> check    dir command
-    Import   {} -> importC  dir command
-    New      {} -> new      dir command
-    Edit     {} -> edit     dir command
-    Obsolete {} -> obsolete dir command
-    Rename   {} -> rename   dir command
-    Retag    {} -> retag    dir command
-    ChangeID {} -> changeID dir command
+    List     {} -> execute  dir command
+    Cat      {} -> execute  dir command
+    Tags     {} -> execute  dir command
+    Check    {} -> execute  dir command
+    Import   {} -> execute  dir command
+    New      {} -> execute  dir command
+    Edit     {} -> execute  dir command
+    Obsolete {} -> execute dir command
+    Rename   {} -> execute  dir command
+    Retag    {} -> execute  dir command
+    ChangeID {} -> execute dir command
 
+
+execute :: Dir -> Command -> IO()
 
 -- List the names of files matching the terms.
-list :: Dir -> Command -> IO ()
-list dir (List path Nothing sel) = getManyNotes dir sel >>=
+execute dir (List path Nothing sel) = getManyNotes dir sel >>=
   mapM_ (if path then putStrLn . notePath dir else printNote)
 
 -- Apply command specified with --exec to files matching the terms.
-list dir (List _ (Just exec) sel) = do
+execute dir (List _ (Just exec) sel) = do
   notes <- getManyNotes dir sel
   let cmd:args = words exec
   rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
     ExitSuccess -> return ()
     code        -> print code
 
-tags :: Dir -> Command -> IO ()
-tags dir (Tags pop) = do
+execute dir (Tags pop) = do
   ts <- countTags <$> getAllNotes dir
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ sortOn Down ts
          else mapM_ (putStrLn . snd) ts
 
-cat :: Dir -> Command -> IO ()
-cat dir (Cat noheaders sel) = do
+execute dir (Cat noheaders sel) = do
   notes <- getManyNotes dir sel
   contents <- mapM (T.readFile . notePath dir) notes
   if noheaders
@@ -111,50 +110,29 @@ cat dir (Cat noheaders sel) = do
     header :: Text -> Text
     header s = s <> "\n" <> T.replicate (T.length s) "=" <> "\n"
 
--- | Edit either one file selected by ID or all files matching search terms.
-  -- If neither ID nor search terms are specified edit the last file.
-  -- Specifying both ID and serch terms is a user error.
-  --
-  -- TODO Make this type of file selection default for most actions?
-edit :: Dir -> Command -> IO ()
-edit dir (Edit sel)    = editNotes dir =<< getManyNotes dir sel
+-- | Edit the selected notes.
+execute dir (Edit sel) = editNotes dir =<< getManyNotes dir sel
 
-editNotes :: Dir -> [Note] -> IO ()
-editNotes dir notes = do
-  exec <- catchIOError (getEnv "EDITOR") defaultEditor
-  if null notes
-    then return ()
-    else do
-      let cmd:args = words exec
-      rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
-        ExitSuccess -> checkinNotes dir notes >>= \case
-            ExitSuccess -> mapM_ printFilename notes
-            code        -> print code
-        code        -> print code
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
-obsolete :: Dir -> Command -> IO ()
-obsolete dir (Obsolete dry sel) = getManyNotes dir sel >>= modifyNotes dry f dir
+execute dir (Obsolete dry sel) = getManyNotes dir sel >>= modifyNotes dry f dir
   where
     f n = n { status = Obsoleted }
 
 -- | Rename a single note.
-rename :: Dir -> Command -> IO ()
-rename dir (Rename dry sel nameParts) = getOneNote dir sel >>= mapM_ (modifyNote dry f dir)
+execute dir (Rename dry sel nameParts) = getOneNote dir sel >>= mapM_ (modifyNote dry f dir)
   where
     f n = n { name = unwords nameParts }
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
-retag :: Dir -> Command -> IO ()
-retag dir (Retag dry newTag sel) = getManyNotes dir sel >>= modifyNotes dry f dir
+execute dir (Retag dry newTag sel) = getManyNotes dir sel >>= modifyNotes dry f dir
   where
     f n = n { tag = newTag }
 
 -- | Change the ID of a file.
-changeID :: Dir -> Command -> IO ()
-changeID dir ChangeID {..} = do
+execute dir ChangeID {..} = do
   new <- case newID of
     Nothing -> makeAvailableID dir
     Just i  -> parseID i >>= firstAvailableID dir
@@ -162,6 +140,51 @@ changeID dir ChangeID {..} = do
   modifyNotes dryrun (f new) dir notes
   where
     f new n = n { nid = new }
+
+
+-- List bad files with headers.
+execute dir (Check names refs) = do
+  if names
+    then do
+      putStrLn "Badly named files"
+      putStrLn "-----------------"
+      checkNames dir
+    else return ()
+  putStrLn ""
+  putStrLn "Files with duplicate identifiers"
+  putStrLn "--------------------------------"
+  checkDuplicateIDs dir
+  if refs
+    then do
+      putStrLn ""
+      putStrLn "Files with bad references"
+      putStrLn "-------------------------"
+      checkRefs dir
+    else return ()
+
+
+-- | Import a pre-existing file, optionally with a new title.
+execute dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
+execute dir (Import Nothing tag file) = do
+  file' <- parseRelFile file
+  title <- unpack . filename' <$> file' -<.> ""
+  importC' dir tag title file'
+
+
+
+execute dir (New empty tag name) = do
+  i <- makeAvailableID dir
+  let note = Note Current i tag (unwords name) (Just ".txt")
+  exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
+                  else catchIOError (getEnv "EDITOR") defaultEditor
+  let cmd:args = words exec
+  rawSystem cmd (args ++ [notePath dir note]) >>= \case
+    ExitSuccess -> checkinNote dir note >>= \case
+      ExitSuccess -> printFilename note
+      code        -> print code
+    code        -> print code
+
+
 
 modifyNote :: Run -> (Note -> Note) -> Dir -> Note -> IO ()
 modifyNote run f dir = modifyNotes run f dir . pure
@@ -191,30 +214,9 @@ checkDuplicateIDs dir = mapM_ (mapM_ (T.putStrLn . noteFilenameT)) . findDuplica
     equalIDs n1 n2 = nid n1 == nid n2
 
 -- List files with bad references.
-checkRefs dir = putStrLn "NOT IMPLEMENTED" -- TODO
+checkRefs :: Dir -> IO ()
+checkRefs _ = putStrLn "NOT IMPLEMENTED" -- TODO
 
--- List bad files with headers.
-check dir (Check names refs) = do
-  putStrLn "Badly named files"
-  putStrLn "-----------------"
-  checkNames dir
-  putStrLn ""
-  putStrLn "Files with duplicate identifiers"
-  putStrLn "--------------------------------"
-  checkDuplicateIDs dir
-  putStrLn ""
-  putStrLn "Files with bad references"
-  putStrLn "-------------------------"
-  checkRefs dir
-
-
--- | Import a pre-existing file, optionally with a new title.
-importC :: Dir -> Command -> IO ()
-importC dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
-importC dir (Import Nothing tag file) = do
-  file' <- parseRelFile file
-  title <- unpack . filename' <$> file' -<.> ""
-  importC' dir tag title file'
 
 importC' :: Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
@@ -226,15 +228,16 @@ importC' dir tag title file = do
     ExitSuccess -> printFilename note
     code        -> print code
 
-new :: Dir -> Command -> IO ()
-new dir (New empty tag name) = do
-  i <- makeAvailableID dir
-  let note = Note Current i tag (unwords name) (Just ".txt")
-  exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
-                  else catchIOError (getEnv "EDITOR") defaultEditor
-  let cmd:args = words exec
-  rawSystem cmd (args ++ [notePath dir note]) >>= \case
-    ExitSuccess -> checkinNote dir note >>= \case
-      ExitSuccess -> printFilename note
-      code        -> print code
-    code        -> print code
+
+editNotes :: Dir -> [Note] -> IO ()
+editNotes dir notes = do
+  exec <- catchIOError (getEnv "EDITOR") defaultEditor
+  if null notes
+    then return ()
+    else do
+      let cmd:args = words exec
+      rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
+        ExitSuccess -> checkinNotes dir notes >>= \case
+            ExitSuccess -> mapM_ printFilename notes
+            code        -> print code
+        code        -> print code

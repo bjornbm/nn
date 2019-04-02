@@ -8,19 +8,20 @@ import Control.Arrow ((&&&))
 import Control.Monad.Catch (MonadThrow)
 import Data.List (filter, group, init, sort, sortOn)
 import qualified Data.List as L
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
-import Path ( Path (..), Abs (..), Rel (..), File (..)
-            , parent, fromAbsDir, reldir
+import Path ( Path, Abs, Rel, File
+            , parent, reldir
             , filename, fileExtension, parseAbsFile, parseAbsDir
             , fromAbsFile, parseRelFile, fromRelFile
             , (</>), (-<.>)
             )
 import Path.IO (listDir, renameFile)
+import System.Exit (ExitCode)
 import System.Process
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -34,18 +35,22 @@ mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
   -- TODO sort [Note] instead of file paths?
   =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
-    stdArgs dir = [ "-onlyin", dir , "-0" ]
+    stdArgs dir' = [ "-onlyin", dir' , "-0" ]
     massage = map unpack
             . filter (not . isSuffixOf "~")   -- Vim backup file.
             . filter (not . isSuffixOf ",v")  -- RCS file.
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
+myfilter :: [Char] -> Bool
 myfilter file = not ("~"  `L.isSuffixOf` file)  -- Vim backup file.
              && not (",v" `L.isSuffixOf` file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
-mdlist dir = do d <- parseAbsDir dir; sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir d
+mdlist :: Dir -> IO [Path Abs File]
+mdlist dir = do
+  d <- parseAbsDir dir
+  sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir d
   -- TODO sort [Note] instead of file paths?
 
 type Dir = FilePath
@@ -108,7 +113,8 @@ formatStatus :: Status -> String
 formatStatus Obsoleted = "+"
 formatStatus _         = ""
 
-
+-- | Utility function for specifying an ID (mainly for test purposes).
+ltID :: Integer -> Int -> Int -> Int -> Int -> ID
 ltID y m d h mn = ID $ LocalTime (fromGregorian y m d) (TimeOfDay h mn 0)
 
 -- | Create the filename of a note.
@@ -205,6 +211,7 @@ rcsP = string ",v" *> eof
 titleP :: Parser String
 titleP = someTill anySingle (lookAhead $ try (optional extP <* endP))
 
+endP :: Parser ()
 endP = eof <|> backupP <|> rcsP
 
 extP :: Parser (Maybe Extension)
@@ -251,7 +258,7 @@ nextID :: ID -> ID
 nextID (ID t) = (ID . utcToLocalTime utc . addUTCTime 60 . localTimeToUTC utc) t
 
 -- | Check in notes with RCS. Use default description/message.
---checkinNotes :: Dir -> [Note] -> IO ExitCode
+checkinNotes :: Dir -> [Note] -> IO ExitCode
 checkinNotes dir notes = rawSystem "rcs" (args ++ map (notePath dir) notes)
   where
     args = [ "ci"   -- Check in.
@@ -261,11 +268,12 @@ checkinNotes dir notes = rawSystem "rcs" (args ++ map (notePath dir) notes)
            ]
 
 -- | Check in note with RCS. Use default description/message.
---checkinNote :: Dir -> Note -> IO ExitCode
+checkinNote :: Dir -> Note -> IO ExitCode
 checkinNote dir note = checkinNotes dir [note]
 
 -- | Check in file with RCS. The checkin is forced even if the file
 -- has not been changed which ensures the log message is written.
+checkinForceMessage :: Text -> [Path Abs File] -> IO ExitCode
 checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
   where
     args = [ "ci"   -- Check in.
@@ -277,6 +285,7 @@ checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
 
 -- | Rename a file as well as the corresponding RCS (,v) file.
 -- The file is given a new revision documenting the old name.
+renameRCS :: Dir -> Note -> Note -> IO ExitCode
 renameRCS dir oldNote newNote = do
   old <- noteAbsFile dir oldNote
   new <- noteAbsFile dir newNote
@@ -323,6 +332,6 @@ printNote = putStrLn . showNote
 -- >>> safe null [1]
 -- Just False
 safe :: ([a] -> b) -> [a] -> Maybe b
-safe f [] = Nothing
+safe _ [] = Nothing
 safe f xs = Just $ f xs
 
