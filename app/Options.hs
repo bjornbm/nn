@@ -54,7 +54,7 @@ Sanity checking commands:
 
 module Options where
 
-
+import Data.Bool (bool)
 import Data.Maybe (maybe)
 import Data.Semigroup ((<>))
 import Options.Applicative
@@ -94,6 +94,7 @@ data SelectMany = SelectMany
   , sTERMs :: [String]
   } deriving (Show, Eq)
 
+selectManyOptions :: Parser SelectMany
 selectManyOptions = SelectMany
   <$> selectLast
   <*> selectIDs
@@ -117,22 +118,38 @@ selectManyOptions = SelectMany
 
 data SelectOne = SelectID { sID :: String } | SelectLast deriving (Eq, Show)
 
+selectOneOptions :: Parser SelectOne
 selectOneOptions = maybe SelectLast SelectID <$> selectID
   where
     selectID = strOptional (lsh "id" 'i' "The ID of the note to select. If no ID is specified the most recent (non-obsolete) note is selected. If several notes share the same ID (see `nn check`) only the first is selected." <> metavar "ID")
 
 
 
-
+infoh :: Parser a -> InfoMod a -> ParserInfo a
 infoh parser = info (helper <*> parser)
+
+commandh :: String -> Parser a -> InfoMod a -> Mod CommandFields a
 commandh name parser = command name . infoh parser
+
+commandhd :: String -> Parser a -> String -> Mod CommandFields a
 commandhd name parser = command name . infoh parser . progDesc
+
+strOptional :: Mod OptionFields String -> Parser (Maybe String)
 strOptional = optional . strOption
+
+lh :: HasName f => String -> String -> Mod f a
 lh l h = long l <> help h
+
+lsh :: HasName f => String -> Char -> String -> Mod f a
 lsh l s h = long l <> short s <> help h
+
+manyArguments :: String -> Parser [String]
 manyArguments = many . argument str . metavar
+
+someArguments :: String -> Parser [String]
 someArguments = some . argument str . metavar
 
+options :: Parser Command
 options = subparser
   (  commandhd "list"         listOptions "List selected notes"
   <> commandhd "cat"           catOptions "Concatenate notes to STDOUT"
@@ -147,6 +164,7 @@ options = subparser
   <> commandhd "changeid" changeIDOptions "Change ID of selected note"  -- ID -> timestamp?
   ) <|> listOptions
 
+listOptions :: Parser Command
 listOptions = List
   <$> switch      (lsh "path" 'p' "List full paths of note files")
   <*> strOptional (lsh "exec" 'e' "Pass notes file paths as arguments to COMMAND" <> metavar "COMMAND")
@@ -157,16 +175,20 @@ catOptions = Cat
   <$> switch       (lsh "noheaders" 'n' "Do not include headers in output")
   <*> selectManyOptions
 
+editOptions :: Parser Command
 editOptions = Edit
   <$> selectManyOptions
 
+tagsOptions :: Parser Command
 tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")
 
+checkOptions :: Parser Command
 checkOptions = Check
   <$> switch (lsh "names"      'n' "List badly named notes")
   <*> switch (lsh "references" 'r' "List notes containing bad note references")
 
+importOptions :: Parser Command
 importOptions = Import
   <$> strOptional  (lsh "title" 't' titleDesc <> metavar "TITLE")
   <*> argument str (metavar "TAG")
@@ -174,40 +196,45 @@ importOptions = Import
   where
     titleDesc = "Import with title TITLE. If no title is specified the name of the file will be used as the note title."
 
-dryswitch = dryrun <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
-  where
-    dryrun True  = Dry
-    dryrun False = Full
+dryswitch :: Parser Run
+dryswitch = bool Full Dry <$> switch (long "dry-run" <> help "Show how the files would be renamed, but don't actually do anything")
 
+newOptions :: Parser Command
 newOptions = New
   <$> switch (lsh "empty" 'e' "Create an empty note")
   <*> argument str (metavar "TAG")
   <*> someArguments "NAME"  -- TODO: should be TITLE?
 
+obsoleteOptions :: Parser Command
 obsoleteOptions = Obsolete
   <$> dryswitch
   <*> selectManyOptions
 
+renameOptions :: Parser Command
 renameOptions = Rename
   <$> dryswitch
   <*> selectOneOptions
   <*> someArguments "NAME"
 
+retagOptions :: Parser Command
 retagOptions = Retag
   <$> dryswitch
   <*> argument str (metavar "TAG")
   <*> selectManyOptions
 
+changeIDOptions :: Parser Command
 changeIDOptions = ChangeID
   <$> dryswitch
   <*> strOptional (lsh "newid" 'n' "The new ID to assign to the note. If no new ID is specified the current time will be used. If the new ID is already in use the next available ID will be assigned to the note." <> metavar "NEW ID")
   <*> selectOneOptions
 
+descText :: String
 descText = "nn is a tool for conveniently and efficiently creating, searching, and displaying notes. "
         <> "Different behaviors are invoked by different subcommands. "
         <> "The default behavior, when no subcommand is passed, is to search for notes. "
         <> "nn will create and search for notes in the directory identified by the environment variable $NN_HOME (absolute path)."
 
+description :: InfoMod a
 description = fullDesc
     <> header "nn - a note management tool"
     <> progDesc descText
