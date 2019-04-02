@@ -2,11 +2,10 @@
 
 module Select (getOneNote, getManyNotes, getAllNotes, getMDNotes, getBadFiles) where
 
-import Control.Monad (join, sequence)
-import Data.Either (isLeft, isRight, fromRight, rights, lefts)
+import Data.Either (isLeft, rights)
 import Data.List (sort)
 import Data.Maybe (catMaybes, maybeToList)
-import Path (Path (..), Abs (..), Rel (..), File (..))
+import Path (Path, Abs, File)
 import Text.Megaparsec (parse)
 
 import Util
@@ -58,9 +57,9 @@ getLastNote dir = safe last <$> getAllNotes dir
 -- Returns @Nothing@ if no note matches the ID.
 -- If two notes have the same ID only one of them will be returned.
 getIDNote :: Dir -> String -> IO (Maybe Note)
-getIDNote dir id = safe head . filter f . parseNotes <$> mdfind dir ["name:"++id]
+getIDNote dir i = safe head . filter f . parseNotes <$> mdfind dir ["name:" ++ i]
   where
-    f = hasID' id  -- TODO maybe check that the provided ID is valid??
+    f = hasID' i  -- TODO maybe check that the provided ID is valid??
 
 -- | Get all notes in the DB.
 getAllNotes :: Dir -> IO [Note]

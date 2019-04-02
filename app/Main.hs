@@ -4,26 +4,19 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import Control.Applicative
-import Data.Either (isLeft, isRight, fromRight, rights, lefts)
 import Data.List (sortOn, groupBy)
-import Data.Maybe (catMaybes, maybeToList)
+import Data.Maybe (maybeToList)
 import Data.Ord (Down (Down))
 import Data.Semigroup ((<>))
-import Data.Text (Text, pack, unpack, isSuffixOf)
+import Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
-import Path ( Path (..), Abs (..), Rel (..), File (..)
-            , parseAbsDir, parseRelFile
-            , fromRelFile, fromAbsFile, fromAbsDir
-            , parent, fileExtension
-            , (</>), (<.>), (-<.>))
+import Path ( Path, Rel, File, parseRelFile, fileExtension, (-<.>))
 import Path.IO (copyFile)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.IO.Error (catchIOError)
 import System.Process (rawSystem)
-import Text.Megaparsec (parse)
 import Text.Printf (printf)
 
 import ID
@@ -32,6 +25,7 @@ import Options
 import Select
 
 
+defaultEditor :: b -> IO String
 defaultEditor = const (return "vi")
 
 {- TODO:
@@ -66,7 +60,7 @@ defaultEditor = const (return "vi")
 +  List in format "ID [tag] title" (without extension)
 -}
 
-
+main :: IO ()
 main = do
   command <- parseCommand
   dir <- getEnv "NN_HOME"  -- TODO graceful error handling.
@@ -224,8 +218,8 @@ importC dir (Import Nothing tag file) = do
 
 importC' :: Dir -> String -> String -> Path Rel File -> IO ()
 importC' dir tag title file = do
-  id <- makeAvailableID dir
-  let note = Note Current id tag title (Just $ fileExtension file)
+  i <- makeAvailableID dir
+  let note = Note Current i tag title (Just $ fileExtension file)
   newfile <- noteAbsFile dir note
   copyFile file newfile
   checkinNote dir note >>= \case
@@ -234,8 +228,8 @@ importC' dir tag title file = do
 
 new :: Dir -> Command -> IO ()
 new dir (New empty tag name) = do
-  id <- makeAvailableID dir
-  let note = Note Current id tag (unwords name) (Just ".txt")
+  i <- makeAvailableID dir
+  let note = Note Current i tag (unwords name) (Just ".txt")
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
                   else catchIOError (getEnv "EDITOR") defaultEditor
   let cmd:args = words exec
