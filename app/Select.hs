@@ -57,16 +57,16 @@ getLastNote dir = safe last <$> getAllNotes dir
 -- Returns @Nothing@ if no note matches the ID.
 -- If two notes have the same ID only one of them will be returned.
 getIDNote :: Dir -> String -> IO (Maybe Note)
-getIDNote dir i = safe head . filter f . parseNotes <$> mdfind dir ["name:" ++ i]
+getIDNote dir i = safe head . filter f . parseNotes <$> findFind dir i
   where
     f = hasID' i  -- TODO maybe check that the provided ID is valid??
 
 -- | Get all notes in the DB.
 getAllNotes :: Dir -> IO [Note]
-getAllNotes dir = filter notObsolete . parseNotes <$> mdlist dir  -- TODO allow obsolete
+getAllNotes dir = filter notObsolete . parseNotes <$> listFiles dir  -- TODO allow obsolete
 
 getBadFiles :: Dir -> IO [Path Abs File]
-getBadFiles dir = filter (isLeft . parse noteParser "" . filename') <$> mdlist dir
+getBadFiles dir = filter (isLeft . parse noteParser "" . filename') <$> listFiles dir
 
 -- | Get all notes which match the metadata terms
 getMDNotes :: Dir -> [String] -> IO [Note]

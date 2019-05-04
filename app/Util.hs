@@ -42,13 +42,24 @@ mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
+findFind :: Dir -> String -> IO [Path Abs File]
+findFind dir s = fmap (sortOn filename) . mapM parseAbsFile . massage
+  -- TODO sort [Note] instead of file paths?
+  =<< readProcess "find" [dir, "-name", "*" <> s <> "*", "-print0"] ""
+  where
+    massage = map unpack
+            . filter (not . isSuffixOf "~")   -- Vim backup file.
+            . filter (not . isSuffixOf ",v")  -- RCS file.
+            . init . splitOn "\0"  -- Null-terminated filenames.
+            . pack
+
 myfilter :: [Char] -> Bool
 myfilter file = not ("~"  `L.isSuffixOf` file)  -- Vim backup file.
              && not (",v" `L.isSuffixOf` file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
-mdlist :: Dir -> IO [Path Abs File]
-mdlist dir = do
+listFiles :: Dir -> IO [Path Abs File]
+listFiles dir = do
   d <- parseAbsDir dir
   sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir d
   -- TODO sort [Note] instead of file paths?
@@ -176,7 +187,9 @@ idP = let sep = char '_' in do
   parseID (printf "%s_%s_%s_%s%s" yyyy mm dd hh mn)
 
 tagP :: Parser String
-tagP  = char '-' *> some alphaNumChar <* char '-'  -- TODO åäöÅÄÖ don't work.
+tagP  = char '-' *> tagnameP <* char '-'  -- TODO åäöÅÄÖ don't work.
+tagnameP :: Parser String
+tagnameP = some alphaNumChar
 
 backupP :: Parser ()
 backupP = char '~' *> eof
