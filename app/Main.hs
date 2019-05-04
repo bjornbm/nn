@@ -165,19 +165,23 @@ execute dir (Check names refs) = do
 
 
 -- | Import a pre-existing file, optionally with a new title.
-execute dir (Import modid newid title tag file) = case parseAbsFile file of
-    Just file' -> go file'
-    Nothing    -> parseRelFile file >>= go
+execute dir (Import modid newid title tag files) = mapM_ go1 files
   where
-    go file' = do
+    go1 :: FilePath -> IO ()
+    go1 file = case parseAbsFile file of
+      Just file' -> go2 file'
+      Nothing    -> parseRelFile file >>= go2
+
+    go2 :: Path a File -> IO ()
+    go2 file = do
       i <- case newid of
-        Just newid' -> parseID newid'
-        Nothing     -> if modid then getModificationTime file' >>= makeIDFromUTCTime >>= firstAvailableID dir
+        Just newid' -> parseID newid' >>= firstAvailableID dir
+        Nothing     -> if modid then getModificationTime file >>= makeIDFromUTCTime >>= firstAvailableID dir
                                 else makeAvailableID dir
       t <- case title of
         Just title' -> return title'
-        Nothing     -> unpack . filename' <$> file' -<.> ""
-      importC' dir i tag t file'
+        Nothing     -> unpack . filename' <$> file -<.> ""
+      importC' dir i tag t file
 
 execute dir (New empty tag name) = do
   i <- makeAvailableID dir
