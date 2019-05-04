@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
 import Data.List (sortOn, groupBy)
@@ -11,7 +12,7 @@ import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
-import Path ( Path, Rel, File, parseRelFile, fileExtension, (-<.>))
+import Path ( Path, File, parseAbsFile, parseRelFile, fileExtension, (-<.>))
 import Path.IO (copyFile)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
@@ -165,12 +166,13 @@ execute dir (Check names refs) = do
 
 -- | Import a pre-existing file, optionally with a new title.
 execute dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
-execute dir (Import Nothing tag file) = do
-  file' <- parseRelFile file
-  title <- unpack . filename' <$> file' -<.> ""
-  importC' dir tag title file'
-
-
+execute dir (Import Nothing tag file) = case parseAbsFile file of
+    Just file' -> go file'
+    Nothing    -> parseRelFile file >>= go
+  where
+    go file' = do
+      title <- unpack . filename' <$> file' -<.> ""
+      importC' dir tag title file'
 
 execute dir (New empty tag name) = do
   i <- makeAvailableID dir
@@ -218,7 +220,7 @@ checkRefs :: Dir -> IO ()
 checkRefs _ = putStrLn "NOT IMPLEMENTED" -- TODO
 
 
-importC' :: Dir -> String -> String -> Path Rel File -> IO ()
+importC' :: Dir -> String -> String -> Path a File -> IO ()
 importC' dir tag title file = do
   i <- makeAvailableID dir
   let note = Note Current i tag title (Just $ fileExtension file)
