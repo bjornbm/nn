@@ -72,7 +72,7 @@ data Command
   | Edit     { mselection :: SelectMany }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
-  | Import   { title :: Maybe String, newTag :: String, file :: String }
+  | Import   { modid :: Bool, newID :: Maybe String, title :: Maybe String, newTag :: String, file :: String }
   | New      { empty :: Bool, newTag :: String, nameParts :: [String] }
   | Obsolete { dryrun :: Run, mselection :: SelectMany }
   | Rename   { dryrun :: Run, selection :: SelectOne, nameParts :: [String] }
@@ -190,7 +190,9 @@ checkOptions = Check
 
 importOptions :: Parser Command
 importOptions = Import
-  <$> strOptional  (lsh "title" 't' titleDesc <> metavar "TITLE")
+  <$> switch       (lsh "modificationtime" 'm' "Assign an ID to the note based on the file's modification time. If the ID is already in use the next available ID will be assigned to the note.")
+  <*> strOptional  (lsh "id" 'i' "The ID to assign to the note (takes precedence over the `-m` switch). If no ID is specified the current time will be used. If the ID is already in use the next available ID will be assigned to the note." <> metavar "ID")
+  <*> strOptional  (lsh "title" 't' titleDesc <> metavar "TITLE")
   <*> argument str (metavar "TAG")
   <*> argument str (metavar "FILE")
   where

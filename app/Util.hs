@@ -242,10 +242,16 @@ noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 countTags :: [Note] -> [(Int, String)]
 countTags = map (length &&& head) . group . sort . map tag
 
+-- | Create an ID for a new file based on a given UTCTime. The file ID will be in the
+  -- local time corresponding to the UTCTime for the current time zone (which may
+  -- not be the time zone in effect at the provided UTC time).
+makeIDFromUTCTime :: UTCTime -> IO ID
+makeIDFromUTCTime t = ID <$> (flip utcToLocalTime t <$> getCurrentTimeZone)
+
 -- | Create an ID for a new file. Specifically a time stamp
   -- based on the current local time with minute precision.
 makeID :: IO ID
-makeID = ID <$> (utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime)
+makeID = getCurrentTime >>= makeIDFromUTCTime
 
 -- | Provide the next valid ID (one minute later timestamp).
 --

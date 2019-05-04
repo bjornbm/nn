@@ -13,7 +13,7 @@ import Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
 import Path ( Path, File, parseAbsFile, parseRelFile, fileExtension, (-<.>))
-import Path.IO (copyFile)
+import Path.IO (copyFile, getModificationTime)
 import System.Environment (getEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.IO.Error (catchIOError)
@@ -165,14 +165,19 @@ execute dir (Check names refs) = do
 
 
 -- | Import a pre-existing file, optionally with a new title.
-execute dir (Import (Just title) tag file) = importC' dir tag title =<< parseRelFile file
-execute dir (Import Nothing tag file) = case parseAbsFile file of
+execute dir (Import modid newid title tag file) = case parseAbsFile file of
     Just file' -> go file'
     Nothing    -> parseRelFile file >>= go
   where
     go file' = do
-      title <- unpack . filename' <$> file' -<.> ""
-      importC' dir tag title file'
+      i <- case newid of
+        Just newid' -> parseID newid'
+        Nothing     -> if modid then getModificationTime file' >>= makeIDFromUTCTime >>= firstAvailableID dir
+                                else makeAvailableID dir
+      t <- case title of
+        Just title' -> return title'
+        Nothing     -> unpack . filename' <$> file' -<.> ""
+      importC' dir i tag t file'
 
 execute dir (New empty tag name) = do
   i <- makeAvailableID dir
@@ -220,9 +225,8 @@ checkRefs :: Dir -> IO ()
 checkRefs _ = putStrLn "NOT IMPLEMENTED" -- TODO
 
 
-importC' :: Dir -> String -> String -> Path a File -> IO ()
-importC' dir tag title file = do
-  i <- makeAvailableID dir
+importC' :: Dir -> ID -> Tag -> Name -> Path a File -> IO ()
+importC' dir i tag title file = do
   let note = Note Current i tag title (Just $ fileExtension file)
   newfile <- noteAbsFile dir note
   copyFile file newfile
