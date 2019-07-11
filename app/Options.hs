@@ -59,9 +59,11 @@ import Data.Maybe (maybe)
 import Data.Semigroup ((<>))
 import Options.Applicative
 
+import Util (SearchTool (..))
 
 data Options = Options
   { nnHome     :: FilePath
+  , searchTool :: SearchTool
   -- TODO other global options
   , optCommand :: Command
   }

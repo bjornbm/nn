@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Data.List (sortOn, groupBy)
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, fromMaybe)
 import Data.Ord (Down (Down))
 import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack)
@@ -14,9 +14,9 @@ import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
 import Path ( Path, File, parseAbsFile, parseRelFile, fileExtension, (-<.>))
 import Path.IO (copyFile, getModificationTime)
-import System.Environment (getEnv)
+import System.Environment (lookupEnv)
 import System.Exit (ExitCode (ExitSuccess))
-import System.IO.Error (catchIOError)
+import System.IO (hPutStrLn, stderr)
 import System.Process (rawSystem)
 import Text.Printf (printf)
 
@@ -26,8 +26,14 @@ import Options
 import Select
 
 
-defaultEditor :: b -> IO String
-defaultEditor = const (return "vi")
+defaultEditor :: String
+defaultEditor = "vi"
+
+defaultHome :: String  -- TODO: Path Abs Dir
+defaultHome = "~/.nn"  -- TODO: Broken since ~/ will not expand to home directory
+
+defaultSearchTool :: SearchTool
+defaultSearchTool = Ag
 
 {- TODO:
 -  Consistent terminology (file or note?)
@@ -64,45 +70,56 @@ defaultEditor = const (return "vi")
 main :: IO ()
 main = do
   command <- parseCommand
-  dir <- getEnv "NN_HOME"  -- TODO graceful error handling.
+  dir <- fromMaybe defaultHome <$> lookupEnv "NN_HOME"  -- TODO graceful error handling.
+  tool <- lookupEnv "NN_TOOL" >>= \case  -- TODO graceful error handling.
+      Just "ack"  -> return Ack
+      Just "ag"   -> return Ag
+      Just "find" -> return Find
+      Just t      -> hPutStrLn stderr
+                      ("Unknown search tool `" <> t
+                      <> "`, defaulting to `"
+                      <> show defaultSearchTool <> "`.")
+                  >> return defaultSearchTool
+      Nothing     -> return defaultSearchTool
+
   -- TODO This is really just a pattern match which could be replaced
   -- with a single command. The current implementation just have lots
   -- of partial functions!
   case command of
-    List     {} -> execute  dir command
-    Cat      {} -> execute  dir command
-    Tags     {} -> execute  dir command
-    Check    {} -> execute  dir command
-    Import   {} -> execute  dir command
-    New      {} -> execute  dir command
-    Edit     {} -> execute  dir command
-    Obsolete {} -> execute dir command
-    Rename   {} -> execute  dir command
-    Retag    {} -> execute  dir command
-    ChangeID {} -> execute dir command
+    List     {} -> execute tool dir command
+    Cat      {} -> execute tool dir command
+    Tags     {} -> execute tool dir command
+    Check    {} -> execute tool dir command
+    Import   {} -> execute tool dir command
+    New      {} -> execute tool dir command
+    Edit     {} -> execute tool dir command
+    Obsolete {} -> execute tool dir command
+    Rename   {} -> execute tool dir command
+    Retag    {} -> execute tool dir command
+    ChangeID {} -> execute tool dir command
 
 
-execute :: Dir -> Command -> IO()
+execute :: SearchTool -> Dir -> Command -> IO()
 
 -- List the names of files matching the terms.
-execute dir (List path Nothing sel) = getManyNotes dir sel >>=
+execute tool dir (List path Nothing sel) = getManyNotes tool dir sel >>=
   mapM_ (if path then putStrLn . notePath dir else printNote)
 
 -- Apply command specified with --exec to files matching the terms.
-execute dir (List _ (Just exec) sel) = do
-  notes <- getManyNotes dir sel
+execute tool dir (List _ (Just exec) sel) = do
+  notes <- getManyNotes tool dir sel
   let cmd:args = words exec
   rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
     ExitSuccess -> return ()
     code        -> print code
 
-execute dir (Tags pop) = do
+execute _ dir (Tags pop) = do
   ts <- countTags <$> getAllNotes dir
   if pop then mapM_ (uncurry (printf "%3d %s\n")) $ sortOn Down ts
          else mapM_ (putStrLn . snd) ts
 
-execute dir (Cat noheaders sel) = do
-  notes <- getManyNotes dir sel
+execute tool dir (Cat noheaders sel) = do
+  notes <- getManyNotes tool dir sel
   contents <- mapM (T.readFile . notePath dir) notes
   if noheaders
      then T.putStrLn $ T.intercalate "\n" contents
@@ -112,39 +129,39 @@ execute dir (Cat noheaders sel) = do
     header s = s <> "\n" <> T.replicate (T.length s) "=" <> "\n"
 
 -- | Edit the selected notes.
-execute dir (Edit sel) = editNotes dir =<< getManyNotes dir sel
+execute tool dir (Edit sel) = editNotes dir =<< getManyNotes tool dir sel
 
 
 -- | Mark files as obsolete (prepend a '+' to the file name).
 --   TODO make sure selection works as desired.
-execute dir (Obsolete dry sel) = getManyNotes dir sel >>= modifyNotes dry f dir
+execute tool dir (Obsolete dry sel) = getManyNotes tool dir sel >>= modifyNotes dry f dir
   where
     f n = n { status = Obsoleted }
 
 -- | Rename a single note.
-execute dir (Rename dry sel nameParts) = getOneNote dir sel >>= mapM_ (modifyNote dry f dir)
+execute tool dir (Rename dry sel nameParts) = getOneNote tool dir sel >>= mapM_ (modifyNote dry f dir)
   where
     f n = n { name = unwords nameParts }
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
-execute dir (Retag dry newTag sel) = getManyNotes dir sel >>= modifyNotes dry f dir
+execute tool dir (Retag dry newTag sel) = getManyNotes tool dir sel >>= modifyNotes dry f dir
   where
     f n = n { tag = newTag }
 
 -- | Change the ID of a file.
-execute dir ChangeID {..} = do
+execute tool dir ChangeID {..} = do
   new <- case newID of
-    Nothing -> makeAvailableID dir
-    Just i  -> parseID i >>= firstAvailableID dir
-  notes <- maybeToList <$> getOneNote dir selection
+    Nothing -> makeAvailableID tool dir
+    Just i  -> parseID i >>= firstAvailableID tool dir
+  notes <- maybeToList <$> getOneNote tool dir selection
   modifyNotes dryrun (f new) dir notes
   where
     f new n = n { nid = new }
 
 
 -- List bad files with headers.
-execute dir (Check names refs) = do
+execute _ dir (Check names refs) = do
   if names
     then do
       putStrLn "Badly named files"
@@ -165,7 +182,7 @@ execute dir (Check names refs) = do
 
 
 -- | Import a pre-existing file, optionally with a new title.
-execute dir (Import modid newid title tag files) = mapM_ go1 files
+execute tool dir (Import modid newid title tag files) = mapM_ go1 files
   where
     go1 :: FilePath -> IO ()
     go1 file = case parseAbsFile file of
@@ -175,19 +192,19 @@ execute dir (Import modid newid title tag files) = mapM_ go1 files
     go2 :: Path a File -> IO ()
     go2 file = do
       i <- case newid of
-        Just newid' -> parseID newid' >>= firstAvailableID dir
-        Nothing     -> if modid then getModificationTime file >>= makeIDFromUTCTime >>= firstAvailableID dir
-                                else makeAvailableID dir
+        Just newid' -> parseID newid' >>= firstAvailableID tool dir
+        Nothing     -> if modid then getModificationTime file >>= makeIDFromUTCTime >>= firstAvailableID tool dir
+                                else makeAvailableID tool dir
       t <- case title of
         Just title' -> return title'
         Nothing     -> unpack . filename' <$> file -<.> ""
       importC' dir i tag t file
 
-execute dir (New empty tag name) = do
-  i <- makeAvailableID dir
+execute tool dir (New empty tag name) = do
+  i <- makeAvailableID tool dir
   let note = Note Current i tag (unwords name) (Just ".txt")
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
-                  else catchIOError (getEnv "EDITOR") defaultEditor
+                   else fromMaybe defaultEditor <$> lookupEnv "EDITOR"
   let cmd:args = words exec
   rawSystem cmd (args ++ [notePath dir note]) >>= \case
     ExitSuccess -> checkinNote dir note >>= \case
@@ -241,7 +258,7 @@ importC' dir i tag title file = do
 
 editNotes :: Dir -> [Note] -> IO ()
 editNotes dir notes = do
-  exec <- catchIOError (getEnv "EDITOR") defaultEditor
+  exec <- fromMaybe defaultEditor <$> lookupEnv "EDITOR"
   if null notes
     then return ()
     else do

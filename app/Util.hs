@@ -6,6 +6,7 @@ module Util where
 
 import Control.Arrow ((&&&))
 import Control.Monad.Catch (MonadThrow)
+import Data.Char (isLower)
 import Data.List (filter, group, init, sort, sortOn)
 import qualified Data.List as L
 import Data.Maybe (fromMaybe)
@@ -28,6 +29,40 @@ import Text.Megaparsec.Char
 import Text.Printf (printf)
 
 
+data SearchTool = Ack | Ag | Find
+
+instance Show SearchTool
+  where
+    show Ack = "ack"
+    show Ag = "ag"
+    show Find = "find"
+
+
+searchOptions :: SearchTool -> Dir -> String -> [String]
+searchOptions Ack dir s =
+    [ "--nofilter"  -- Don't go bananas from (empty) pipe on stdin (`readProcess` artifact).
+    , "--smart-case"
+    , "--print0"
+    , "--ignore-dir=RCS"
+    , "--nocolor"
+    , "--literal"
+    , "-n"  -- Don't bother with recursing into subdirectories
+    , "-g"  -- List matching files instead of searching file contents
+    , s
+    , dir
+    ]
+searchOptions Ag dir s = "--parallel"  -- same purpose as `--nofilter` in ack.
+    : tail (searchOptions Ack dir s)   -- TODO: ugly.
+searchOptions Find dir s =
+    [ dir
+    , if all isLower s then "-iname" else "-name"  -- "smart" case-sensitivity.
+    , "*" <> s <> "*"  -- glob around search term.
+    , "!", "-name", "*~"  -- Ignore vim backup files.
+    , "!", "-name", "*,v"  -- Ignore RCS files.
+    , "-print0"
+    , "-maxdepth", "1"  -- Don't descend into RCS.
+    ]
+
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
 mdfind :: Dir -> [String] -> IO [Path Abs File]
@@ -42,14 +77,14 @@ mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
-findFind :: Dir -> String -> IO [Path Abs File]
-findFind dir s = fmap (sortOn filename) . mapM parseAbsFile . massage
-  -- TODO sort [Note] instead of file paths?
-  =<< readProcess "find" [dir, "-name", "*" <> s <> "*", "-print0"] ""
+findFind :: SearchTool -> Dir -> String -> IO [Path Abs File]
+findFind tool dir s = fmap (sortOn filename) . mapM parseAbsFile . massage
+    =<< snd3 <$> readProcessWithExitCode (show tool) (searchOptions tool dir s) ""
+                  -- `ack` and `ag` exit with 1 if they find no files so we
+                  -- cannot use `readProcess` here.
   where
+    snd3 (_, x, _) = x  -- From Neil Mitchell's "extra" package.
     massage = map unpack
-            . filter (not . isSuffixOf "~")   -- Vim backup file.
-            . filter (not . isSuffixOf ",v")  -- RCS file.
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
