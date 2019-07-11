@@ -13,7 +13,7 @@ import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
-import Path ( Path, File, Abs, parseAbsDir, parseAbsFile, parseRelDir, parseRelFile, fileExtension, (-<.>))
+import Path (parseAbsDir, parseAbsFile, parseRelDir, parseRelFile, fileExtension, (-<.>))
 import qualified Path as P
 import Path.IO (copyFile, getModificationTime, getXdgDir, XdgDirectory (..), resolveDir')
 import System.Environment (lookupEnv)
@@ -34,7 +34,7 @@ defaultEditor = "vi"
 defaultSearchTool :: SearchTool
 defaultSearchTool = Ag
 
-determineNnHome :: IO (Path Abs P.Dir)
+determineNnHome :: IO Dir
 determineNnHome = lookupEnv "NN_HOME" >>= \case
     Just home -> catch' (parseAbsDir home) (resolveDir' home)
     Nothing   -> defaultNnHome  -- Default to ~/.local/share/nn (unix).
@@ -78,7 +78,7 @@ determineNnHome = lookupEnv "NN_HOME" >>= \case
 main :: IO ()
 main = do
   command <- parseCommand
-  dir <- P.fromAbsDir <$> determineNnHome  -- TODO ensure dir exists
+  dir <- determineNnHome  -- TODO ensure dir exists
   tool <- lookupEnv "NN_TOOL" >>= \case  -- TODO graceful error handling.
       Just "ack"  -> return Ack
       Just "ag"   -> return Ag
@@ -197,7 +197,7 @@ execute tool dir (Import modid newid title tag files) = mapM_ go1 files
       Just file' -> go2 file'
       Nothing    -> parseRelFile file >>= go2
 
-    go2 :: Path a File -> IO ()
+    go2 :: P.Path a P.File -> IO ()
     go2 file = do
       i <- case newid of
         Just newid' -> parseID newid' >>= firstAvailableID tool dir
@@ -254,7 +254,7 @@ checkRefs :: Dir -> IO ()
 checkRefs _ = putStrLn "NOT IMPLEMENTED" -- TODO
 
 
-importC' :: Dir -> ID -> Tag -> Name -> Path a File -> IO ()
+importC' :: Dir -> ID -> Tag -> Name -> P.Path a P.File -> IO ()
 importC' dir i tag title file = do
   let note = Note Current i tag title (Just $ fileExtension file)
   newfile <- noteAbsFile dir note

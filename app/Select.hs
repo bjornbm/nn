@@ -5,7 +5,6 @@ module Select (getOneNote, getManyNotes, getAllNotes, getMDNotes, getBadFiles) w
 import Data.Either (isLeft, rights)
 import Data.List (sort)
 import Data.Maybe (catMaybes, maybeToList)
-import Path (Path, Abs, File)
 import Text.Megaparsec (parse)
 
 import Util
@@ -44,7 +43,7 @@ getManyNotes tool dir SelectMany {..} =
           return . sort $ nis ++ ys
 
 
-parseNotes :: [Path Abs File] -> [Note]
+parseNotes :: [File] -> [Note]
 parseNotes = rights . map (parse noteParser "" . filename')
 
 -- | Get the note with most recent timestamp.
@@ -65,7 +64,7 @@ getIDNote tool dir i = safe head . filter f . parseNotes <$> findFind tool dir i
 getAllNotes :: Dir -> IO [Note]
 getAllNotes dir = filter notObsolete . parseNotes <$> listFiles dir  -- TODO allow obsolete
 
-getBadFiles :: Dir -> IO [Path Abs File]
+getBadFiles :: Dir -> IO [File]
 getBadFiles dir = filter (isLeft . parse noteParser "" . filename') <$> listFiles dir
 
 -- | Get all notes which match the metadata terms
