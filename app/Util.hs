@@ -15,12 +15,12 @@ import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
 import Data.Void
-import Path ( Path, Abs, Rel, File
-            , parent, reldir
-            , filename, fileExtension, parseAbsFile, parseAbsDir
+import Path ( parent, reldir
+            , filename, fileExtension, parseAbsFile
             , fromAbsFile, parseRelFile, fromRelFile
             , (</>), (-<.>)
             )
+import qualified Path as P
 import Path.IO (listDir, renameFile)
 import System.Exit (ExitCode)
 import System.Process
@@ -49,12 +49,12 @@ searchOptions Ack dir s =
     , "-n"  -- Don't bother with recursing into subdirectories
     , "-g"  -- List matching files instead of searching file contents
     , s
-    , dir
+    , P.fromAbsDir dir
     ]
 searchOptions Ag dir s = "--parallel"  -- same purpose as `--nofilter` in ack.
     : tail (searchOptions Ack dir s)   -- TODO: ugly.
 searchOptions Find dir s =
-    [ dir
+    [ P.fromAbsDir dir
     , if all isLower s then "-iname" else "-name"  -- "smart" case-sensitivity.
     , "*" <> s <> "*"  -- glob around search term.
     , "!", "-name", "*~"  -- Ignore vim backup files.
@@ -65,19 +65,19 @@ searchOptions Find dir s =
 
 -- | Find files. We use the ASCII NULL terminated paths since file
 -- names can contain @\n@ and would get split by @lines@.
-mdfind :: Dir -> [String] -> IO [Path Abs File]
+mdfind :: Dir -> [String] -> IO [File]
 mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
   -- TODO sort [Note] instead of file paths?
   =<< readProcess "mdfind" (stdArgs dir ++ args) ""
   where
-    stdArgs dir' = [ "-onlyin", dir' , "-0" ]
+    stdArgs dir' = [ "-onlyin", P.fromAbsDir dir' , "-0" ]
     massage = map unpack
             . filter (not . isSuffixOf "~")   -- Vim backup file.
             . filter (not . isSuffixOf ",v")  -- RCS file.
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
 
-findFind :: SearchTool -> Dir -> String -> IO [Path Abs File]
+findFind :: SearchTool -> Dir -> String -> IO [File]
 findFind tool dir s = fmap (sortOn filename) . mapM parseAbsFile . massage
     =<< snd3 <$> readProcessWithExitCode (show tool) (searchOptions tool dir s) ""
                   -- `ack` and `ag` exit with 1 if they find no files so we
@@ -93,13 +93,13 @@ myfilter file = not ("~"  `L.isSuffixOf` file)  -- Vim backup file.
              && not (",v" `L.isSuffixOf` file)  -- RCS file.
 
 -- | List all files in the directory except for hidden files.
-listFiles :: Dir -> IO [Path Abs File]
-listFiles dir = do
-  d <- parseAbsDir dir
-  sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir d
+listFiles :: Dir -> IO [File]
+listFiles dir =
+  sortOn filename . filter (myfilter . fromAbsFile) . snd <$> listDir dir
   -- TODO sort [Note] instead of file paths?
 
-type Dir = FilePath
+type Dir  = P.Path P.Abs P.Dir
+type File = P.Path P.Abs P.File
 
 data Status = Obsoleted | Current deriving (Eq, Ord, Show)
 newtype ID = ID LocalTime deriving (Eq, Ord, Show)
@@ -185,12 +185,12 @@ notePath dir = maybe (error "Invalid filename or directory.") fromAbsFile
              . noteAbsFile dir
 
 -- TODO: Consider adding extension in a principled manner with <.>?
-noteRelFile :: MonadThrow m => Note -> m (Path Rel File)
+noteRelFile :: MonadThrow m => Note -> m (P.Path P.Rel P.File)
 noteRelFile = parseRelFile . noteFilename
 
 -- TODO: Consider adding extension in a principled manner with <.>?
-noteAbsFile :: MonadThrow m => Dir -> Note -> m (Path Abs File)
-noteAbsFile dir note = (</>) <$> parseAbsDir dir <*> noteRelFile note
+noteAbsFile :: MonadThrow m => Dir -> Note -> m File
+noteAbsFile dir note = (dir </>) <$> noteRelFile note
 
 
 type Parser = Parsec Void Text
@@ -327,7 +327,7 @@ checkinNote dir note = checkinNotes dir [note]
 
 -- | Check in file with RCS. The checkin is forced even if the file
 -- has not been changed which ensures the log message is written.
-checkinForceMessage :: Text -> [Path Abs File] -> IO ExitCode
+checkinForceMessage :: Text -> [File] -> IO ExitCode
 checkinForceMessage msg files = rawSystem "rcs" (args ++ map fromAbsFile files)
   where
     args = [ "ci"   -- Check in.
@@ -349,7 +349,7 @@ renameRCS dir oldNote newNote = do
   renameFile rcsold rcsnew
   checkinForceMessage ("Renamed from \"" <> filename' old <> "\".") [new]
     where
-      rcsfile :: Path Abs File -> IO (Path Abs File)
+      rcsfile :: File -> IO (File)
       rcsfile file = (parent file </> [reldir|RCS|] </> filename file) -<.> (fileExtension file ++ ",v")
 
 -- | Get the filename (path removed) as @Text@.
@@ -357,7 +357,7 @@ renameRCS dir oldNote newNote = do
   -- The @Text@ is normalized because `mdfind` and @listDir@ does not use NFC
   -- normalisation for file names, so for example
   -- `length "Ö" == 2` in `mdfind` output.
-filename' :: Path a File -> Text
+filename' :: P.Path a P.File -> Text
 filename' = normalize NFC . pack . fromRelFile . filename
 
 -- | Print the filename (path removed).
