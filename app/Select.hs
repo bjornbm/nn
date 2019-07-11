@@ -13,9 +13,9 @@ import Options
 
 
 -- TODO: Last should work with TERMs and TAGs as for the SelectMany case!
-getOneNote :: Dir -> SelectOne -> IO (Maybe Note)
-getOneNote dir  SelectLast  = getLastNote dir
-getOneNote dir (SelectID i) = getIDNote dir i
+getOneNote :: SearchTool -> Dir -> SelectOne -> IO (Maybe Note)
+getOneNote _    dir  SelectLast  = getLastNote dir
+getOneNote tool dir (SelectID i) = getIDNote tool dir i
 
 -- | Get many notes based on various selection criteria.
 --
@@ -25,13 +25,13 @@ getOneNote dir (SelectID i) = getIDNote dir i
 -- Then the selected files are narrowed down by TAGs.
 -- If --last is specified only the last file of the narrowed down list is
 -- selected and all others are discarded.
-getManyNotes :: Dir -> SelectMany -> IO [Note]
-getManyNotes dir SelectMany {..} =
+getManyNotes :: SearchTool -> Dir -> SelectMany -> IO [Note]
+getManyNotes tool dir SelectMany {..} =
   if not sLast && null sIDs && null sTAGs && null sTERMs
     then  -- No options specified, default to listing all notes
       getAllNotes dir
     else do
-      nis <- catMaybes <$> mapM (getIDNote dir) sIDs
+      nis <- catMaybes <$> mapM (getIDNote tool dir) sIDs
       if not sLast && null sTAGs && null sTERMs
         then return nis  -- only IDs were specified.
         else do
@@ -56,8 +56,8 @@ getLastNote dir = safe last <$> getAllNotes dir
 -- | Get the note with the given ID.
 -- Returns @Nothing@ if no note matches the ID.
 -- If two notes have the same ID only one of them will be returned.
-getIDNote :: Dir -> String -> IO (Maybe Note)
-getIDNote dir i = safe head . filter f . parseNotes <$> findFind dir i
+getIDNote :: SearchTool -> Dir -> String -> IO (Maybe Note)
+getIDNote tool dir i = safe head . filter f . parseNotes <$> findFind tool dir i
   where
     f = hasID' i  -- TODO maybe check that the provided ID is valid??
 

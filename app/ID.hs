@@ -4,14 +4,14 @@ module ID where
 
 import Options (SelectOne (SelectID))
 import Select (getOneNote)
-import Util (makeID, nextID, Dir, ID, formatID)
+import Util (makeID, nextID, Dir, ID, formatID, SearchTool)
 
 
-firstAvailableID :: Dir -> ID -> IO ID
-firstAvailableID dir i = getOneNote dir (SelectID $ formatID i) >>= \case
+firstAvailableID :: SearchTool -> Dir -> ID -> IO ID
+firstAvailableID tool dir i = getOneNote tool dir (SelectID $ formatID i) >>= \case
   Nothing -> return i
-  _       -> firstAvailableID dir (nextID i)
+  _       -> firstAvailableID tool dir (nextID i)
 
-makeAvailableID :: Dir -> IO ID
-makeAvailableID dir = makeID >>= firstAvailableID dir
+makeAvailableID :: SearchTool -> Dir -> IO ID
+makeAvailableID tool dir = makeID >>= firstAvailableID tool dir
 
