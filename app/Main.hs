@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
+import Control.Monad.Catch (catchAll)
 import Data.List (sortOn, groupBy)
 import Data.Maybe (maybeToList, fromMaybe)
 import Data.Ord (Down (Down))
@@ -12,8 +13,9 @@ import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
-import Path ( Path, File, parseAbsFile, parseRelFile, fileExtension, (-<.>))
-import Path.IO (copyFile, getModificationTime)
+import Path ( Path, File, Abs, parseAbsDir, parseAbsFile, parseRelDir, parseRelFile, fileExtension, (-<.>))
+import qualified Path as P
+import Path.IO (copyFile, getModificationTime, getXdgDir, XdgDirectory (..), resolveDir')
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (ExitSuccess))
 import System.IO (hPutStrLn, stderr)
@@ -29,11 +31,17 @@ import Select
 defaultEditor :: String
 defaultEditor = "vi"
 
-defaultHome :: String  -- TODO: Path Abs Dir
-defaultHome = "~/.nn"  -- TODO: Broken since ~/ will not expand to home directory
-
 defaultSearchTool :: SearchTool
 defaultSearchTool = Ag
+
+determineNnHome :: IO (Path Abs P.Dir)
+determineNnHome = lookupEnv "NN_HOME" >>= \case
+    Just home -> catch' (parseAbsDir home) (resolveDir' home)
+    Nothing   -> defaultNnHome  -- Default to ~/.local/share/nn (unix).
+  where
+    defaultNnHome = getXdgDir XdgData (parseRelDir "nn")
+    catch' m n = catchAll m (const n)
+
 
 {- TODO:
 -  Consistent terminology (file or note?)
@@ -70,7 +78,7 @@ defaultSearchTool = Ag
 main :: IO ()
 main = do
   command <- parseCommand
-  dir <- fromMaybe defaultHome <$> lookupEnv "NN_HOME"  -- TODO graceful error handling.
+  dir <- P.fromAbsDir <$> determineNnHome  -- TODO ensure dir exists
   tool <- lookupEnv "NN_TOOL" >>= \case  -- TODO graceful error handling.
       Just "ack"  -> return Ack
       Just "ag"   -> return Ag
