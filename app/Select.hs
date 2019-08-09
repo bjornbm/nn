@@ -26,20 +26,22 @@ getOneNote tool dir (SelectID i) = getIDNote tool dir i
 -- selected and all others are discarded.
 getManyNotes :: SearchTool -> Dir -> SelectMany -> IO [Note]
 getManyNotes tool dir SelectMany {..} =
-  if not sLast && null sIDs && null sTAGs && null sTERMs
+  if not selectManyLast && null selectManyIDs && null selectManyTags && null selectManyTerms
     then  -- No options specified, default to listing all notes
       getAllNotes dir
     else do
-      nis <- catMaybes <$> mapM (getIDNote tool dir) sIDs
-      if not sLast && null sTAGs && null sTERMs
+      nis <- catMaybes <$> mapM (getIDNote tool dir) selectManyIDs
+      if not selectManyLast && null selectManyTags && null selectManyTerms
         then return nis  -- only IDs were specified.
         else do
-          ns <- if null sTERMs
+          ns <- if null selectManyTerms
                   then getAllNotes dir  -- Default to matching notes
-                  else getMDNotes dir sTERMs
+                  else getMDNotes dir selectManyTerms
           -- Filter by tags
-          let xs = if null sTAGs then ns else filter (hasAnyTag sTAGs) ns
-          let ys = if sLast then maybeToList $ safe last xs else xs
+          let xs = if null selectManyTags
+                      then ns
+                      else filter (hasAnyTag selectManyTags) ns
+          let ys = if selectManyLast then maybeToList $ safe last xs else xs
           return . sort $ nis ++ ys
 
 

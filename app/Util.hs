@@ -108,21 +108,21 @@ type Name = String
 type Contents = Text
 type Extension = String
 data Note = Note
-  { status :: Status
-  , nid    :: ID
-  , tag    :: Tag
-  , name   :: Name
-  , ext   :: Maybe Extension
+  { noteStatus :: Status
+  , noteID     :: ID
+  , noteTag    :: Tag
+  , noteName   :: Name
+  , noteExt    :: Maybe Extension
   } deriving (Eq, Ord, Show)
 
 notObsolete :: Note -> Bool
-notObsolete = (/= Obsoleted) . status
+notObsolete Note {..} = noteStatus /= Obsoleted
 
 hasTag :: Tag -> Note -> Bool
-hasTag t Note {..} = tag == t
+hasTag t Note {..} = noteTag == t
 
 hasID :: ID -> Note -> Bool
-hasID i Note {..} = nid == i
+hasID i Note {..} = noteID == i
 
 hasID' :: String -> Note -> Bool
 hasID' s n = case parseID s of
@@ -176,7 +176,11 @@ noteFilename = unpack . noteFilenameT
 
 noteFilenameT :: Note -> Text
 noteFilenameT Note { .. } = (normalize NFC . pack) $ printf "%s%s-%s-%s%s"
-  (formatStatus status) (formatID nid) tag name (fromMaybe "" ext)
+  (formatStatus noteStatus)
+  (formatID noteID)
+  noteTag
+  noteName
+  (fromMaybe "" noteExt)
 
 notePath :: Dir -> Note -> FilePath
 -- TODO less secure?:
@@ -288,7 +292,7 @@ noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 -- | Extract tags from file names and count the number of uses of each tag.
   -- TODO Use Megaparsec for the extraction to make tag delimiter flexible?
 countTags :: [Note] -> [(Int, String)]
-countTags = map (length &&& head) . group . sort . map tag
+countTags = map (length &&& head) . group . sort . map noteTag
 
 -- | Create an ID for a new file based on a given UTCTime. The file ID will be in the
   -- local time corresponding to the UTCTime for the current time zone (which may
@@ -367,7 +371,10 @@ printFilename = putStrLn . noteFilename
 -- | Show the note
 showNote :: Note -> String
 showNote Note { .. } = printf "%s%s [%s] %s"
-  (formatStatus status) (formatID nid) tag name
+  (formatStatus noteStatus)
+  (formatID noteID)
+  noteTag
+  noteName
 
 -- | Print the note
 printNote :: Note -> IO ()

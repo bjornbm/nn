@@ -144,18 +144,18 @@ execute tool dir (Edit sel) = editNotes dir =<< getManyNotes tool dir sel
 --   TODO make sure selection works as desired.
 execute tool dir (Obsolete dry sel) = getManyNotes tool dir sel >>= modifyNotes dry f dir
   where
-    f n = n { status = Obsoleted }
+    f n = n { noteStatus = Obsoleted }
 
 -- | Rename a single note.
 execute tool dir (Rename dry sel nameParts) = getOneNote tool dir sel >>= mapM_ (modifyNote dry f dir)
   where
-    f n = n { name = unwords nameParts }
+    f n = n { noteName = unwords nameParts }
 
 -- | Change the tag of a file.
 --   TODO make sure selection works as desired.
 execute tool dir (Retag dry newTag sel) = getManyNotes tool dir sel >>= modifyNotes dry f dir
   where
-    f n = n { tag = newTag }
+    f n = n { noteTag = newTag }
 
 -- | Change the ID of a file.
 execute tool dir ChangeID {..} = do
@@ -165,11 +165,11 @@ execute tool dir ChangeID {..} = do
   notes <- maybeToList <$> getOneNote tool dir selection
   modifyNotes dryrun (f new) dir notes
   where
-    f new n = n { nid = new }
+    f new n = n { noteID = new }
 
 
 -- List bad files with headers.
-execute _ dir (Check names refs) = do
+execute _ dir Check {..} = do
   if names
     then do
       putStrLn "Badly named files"
@@ -180,7 +180,7 @@ execute _ dir (Check names refs) = do
   putStrLn "Files with duplicate identifiers"
   putStrLn "--------------------------------"
   checkDuplicateIDs dir
-  if refs
+  if references
     then do
       putStrLn ""
       putStrLn "Files with bad references"
@@ -190,7 +190,7 @@ execute _ dir (Check names refs) = do
 
 
 -- | Import a pre-existing file, optionally with a new title.
-execute tool dir (Import modid newid title tag files) = mapM_ go1 files
+execute tool dir Import {..} = mapM_ go1 files
   where
     go1 :: FilePath -> IO ()
     go1 file = case parseAbsFile file of
@@ -199,14 +199,14 @@ execute tool dir (Import modid newid title tag files) = mapM_ go1 files
 
     go2 :: P.Path a P.File -> IO ()
     go2 file = do
-      i <- case newid of
+      i <- case newID of
         Just newid' -> parseID newid' >>= firstAvailableID tool dir
-        Nothing     -> if modid then getModificationTime file >>= makeIDFromUTCTime >>= firstAvailableID tool dir
+        Nothing     -> if modID then getModificationTime file >>= makeIDFromUTCTime >>= firstAvailableID tool dir
                                 else makeAvailableID tool dir
       t <- case title of
         Just title' -> return title'
         Nothing     -> unpack . filename' <$> file -<.> ""
-      importC' dir i tag t file
+      importC' dir i newTag t file
 
 execute tool dir (New empty tag name) = do
   i <- makeAvailableID tool dir
@@ -247,7 +247,7 @@ checkDuplicateIDs dir = mapM_ (mapM_ (T.putStrLn . noteFilenameT)) . findDuplica
   where
     findDuplicateIDs :: [Note] -> [[Note]]
     findDuplicateIDs = filter ((>1) . length) . groupBy equalIDs
-    equalIDs n1 n2 = nid n1 == nid n2
+    equalIDs n1 n2 = noteID n1 == noteID n2
 
 -- List files with bad references.
 checkRefs :: Dir -> IO ()

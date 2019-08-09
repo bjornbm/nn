@@ -1,4 +1,7 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE Strict #-}
 
 {-
 
@@ -62,10 +65,10 @@ import Options.Applicative
 import Util (SearchTool (..))
 
 data Options = Options
-  { nnHome     :: FilePath
-  , searchTool :: SearchTool
+  { optionNnHome     :: FilePath
+  , optionSearchTool :: SearchTool
   -- TODO other global options
-  , optCommand :: Command
+  , optionsCommand :: Command
   }
 
 data Command
@@ -74,7 +77,7 @@ data Command
   | Edit     { mselection :: SelectMany }
   | Tags     { popularity :: Bool }
   | Check    { names :: Bool, references :: Bool }
-  | Import   { modid :: Bool, newID :: Maybe String, title :: Maybe String, newTag :: String, files :: [String] }
+  | Import   { modID :: Bool, newID :: Maybe String, title :: Maybe String, newTag :: String, files :: [String] }
   | New      { empty :: Bool, newTag :: String, nameParts :: [String] }
   | Obsolete { dryrun :: Run, mselection :: SelectMany }
   | Rename   { dryrun :: Run, selection :: SelectOne, nameParts :: [String] }
@@ -87,29 +90,30 @@ data Run = Dry | Full deriving (Show, Eq)
 data Join = AND | OR deriving (Show, Eq)
 
 data SelectMany = SelectMany
-  { sLast :: Bool
-  , sIDs :: [String]
-  , sTAGs :: [String]
-  -- , sEXTs :: [String]
-  -- , sAll :: Bool
-  -- , sJoin :: Join
-  , sTERMs :: [String]
+  { selectManyLast :: Bool
+  , selectManyIDs :: [String]
+  , selectManyTags :: [String]
+  -- , selectManyEXTs :: [String]
+  -- , selectManyAll :: Bool
+  -- , selectManyJoin :: Join
+  , selectManyTerms :: [String]
   } deriving (Show, Eq)
 
 selectManyOptions :: Parser SelectMany
-selectManyOptions = SelectMany
-  <$> selectLast
-  <*> selectIDs
-  <*> selectTags
+selectManyOptions = do
+  selectManyLast <- lastP
+  selectManyIDs <- idsP
+  selectManyTags <- tagsP
   -- <*> selectExts
   -- <*> selectAll
   -- <*> selectJoin
-  <*> selectTerms
+  selectManyTerms <- selectTerms
+  pure SelectMany {..}
   where
-    selectLast  = switch (lsh "last" 'l' "Select the most recent note")
-    selectIDs   = many $ strOption
+    lastP  = switch (lsh "last" 'l' "Select the most recent note")
+    idsP   = many $ strOption
       (lsh "id" 'i' "The ID of a note to select" <> metavar "ID")
-    selectTags  = many $ strOption
+    tagsP  = many $ strOption
       (lsh "tag"  't' "Select notes tagged with TAG" <> metavar "TAG")
     -- selectExts  = many $ strOption
     --  (lsh "ext" 'e' "Select notes with extension EXT" <> metavar "EXT")
@@ -118,12 +122,12 @@ selectManyOptions = SelectMany
     selectTerms = manyArguments "SEARCH TERMS"
 
 
-data SelectOne = SelectID { sID :: String } | SelectLast deriving (Eq, Show)
+data SelectOne = SelectID { selectOneID :: String } | SelectLast deriving (Eq, Show)
 
 selectOneOptions :: Parser SelectOne
-selectOneOptions = maybe SelectLast SelectID <$> selectID
+selectOneOptions = maybe SelectLast SelectID <$> idP
   where
-    selectID = strOptional (lsh "id" 'i' "The ID of the note to select. If no ID is specified the most recent (non-obsolete) note is selected. If several notes share the same ID (see `nn check`) only the first is selected." <> metavar "ID")
+    idP = strOptional (lsh "id" 'i' "The ID of the note to select. If no ID is specified the most recent (non-obsolete) note is selected. If several notes share the same ID (see `nn check`) only the first is selected." <> metavar "ID")
 
 
 
@@ -186,17 +190,19 @@ tagsOptions = Tags
   <$> switch (lsh "popularity" 'p' "Show and sort tags by popularity")
 
 checkOptions :: Parser Command
-checkOptions = Check
-  <$> switch (lsh "names"      'n' "List badly named notes")
-  <*> switch (lsh "references" 'r' "List notes containing bad note references")
+checkOptions = do
+  names      <- switch (lsh "names"      'n' "List badly named notes")
+  references <- switch (lsh "references" 'r' "List notes containing bad note references")
+  pure Check {..}
 
 importOptions :: Parser Command
-importOptions = Import
-  <$> switch       (lsh "modificationtime" 'm' "Assign an ID to the note based on the file's modification time. If the ID is already in use the next available ID will be assigned to the note.")
-  <*> strOptional  (lsh "id" 'i' "The ID to assign to the note (takes precedence over the `-m` switch). If no ID is specified the current time will be used. If the ID is already in use the next available ID will be assigned to the note." <> metavar "ID")
-  <*> strOptional  (lsh "title" 't' titleDesc <> metavar "TITLE")
-  <*> argument str (metavar "TAG")
-  <*> someArguments "FILES"
+importOptions = do
+  modID  <- switch       (lsh "modificationtime" 'm' "Assign an ID to the note based on the file's modification time. If the ID is already in use the next available ID will be assigned to the note.")
+  newID  <- strOptional  (lsh "id" 'i' "The ID to assign to the note (takes precedence over the `-m` switch). If no ID is specified the current time will be used. If the ID is already in use the next available ID will be assigned to the note." <> metavar "ID")
+  title  <- strOptional  (lsh "title" 't' titleDesc <> metavar "TITLE")
+  newTag <- argument str (metavar "TAG")
+  files  <- someArguments "FILES"
+  pure Import {..}
   where
     titleDesc = "Import with title TITLE. If no title is specified the name of the file will be used as the note title."
 
