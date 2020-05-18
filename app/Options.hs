@@ -58,8 +58,6 @@ Sanity checking commands:
 module Options where
 
 import Data.Bool (bool)
-import Data.Maybe (maybe)
-import Data.Semigroup ((<>))
 import Options.Applicative
 
 import Util (SearchTool (..))

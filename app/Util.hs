@@ -7,10 +7,9 @@ module Util where
 import Control.Arrow ((&&&))
 import Control.Monad.Catch (MonadThrow)
 import Data.Char (isLower)
-import Data.List (filter, group, init, sort, sortOn)
+import Data.List (group, sort, sortOn)
 import qualified Data.List as L
 import Data.Maybe (fromMaybe)
-import Data.Semigroup ((<>))
 import Data.Text (Text, isSuffixOf, pack, unpack, splitOn)
 import Data.Text.Normalize (normalize, NormalizationMode (NFC))
 import Data.Time
@@ -18,7 +17,7 @@ import Data.Void
 import Path ( parent, reldir
             , filename, fileExtension, parseAbsFile
             , fromAbsFile, parseRelFile, fromRelFile
-            , (</>), (-<.>)
+            , (</>), replaceExtension
             )
 import qualified Path as P
 import Path.IO (listDir, renameFile)
@@ -145,7 +144,7 @@ idFormat :: String
 idFormat = "%Y_%m_%d_%H%M"
 
 -- | Parse an ID string.
-parseID :: Monad m => String -> m ID
+parseID :: MonadFail m => String -> m ID
 parseID = fmap ID . parseTimeM False defaultTimeLocale idFormat
 
 -- | Convert a note ID to its string representation.
@@ -354,7 +353,10 @@ renameRCS dir oldNote newNote = do
   checkinForceMessage ("Renamed from \"" <> filename' old <> "\".") [new]
     where
       rcsfile :: File -> IO (File)
-      rcsfile file = (parent file </> [reldir|RCS|] </> filename file) -<.> (fileExtension file ++ ",v")
+      rcsfile file = do
+        ext <- fileExtension file
+        replaceExtension (ext ++ ",v")
+          (parent file </> [reldir|RCS|] </> filename file)
 
 -- | Get the filename (path removed) as @Text@.
   --

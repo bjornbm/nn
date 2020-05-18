@@ -9,11 +9,10 @@ import Control.Monad.Catch (catchAll)
 import Data.List (sortOn, groupBy)
 import Data.Maybe (maybeToList, fromMaybe)
 import Data.Ord (Down (Down))
-import Data.Semigroup ((<>))
 import Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (intercalate, length, replicate)
 import qualified Data.Text.IO as T (putStrLn, readFile)
-import Path (parseAbsDir, parseAbsFile, parseRelDir, parseRelFile, fileExtension, (-<.>))
+import Path (parseAbsDir, parseAbsFile, parseRelDir, parseRelFile, fileExtension, replaceExtension)
 import qualified Path as P
 import Path.IO (copyFile, getModificationTime, getXdgDir, XdgDirectory (..), resolveDir')
 import System.Environment (lookupEnv)
@@ -205,7 +204,7 @@ execute tool dir Import {..} = mapM_ go1 files
                                 else makeAvailableID tool dir
       t <- case title of
         Just title' -> return title'
-        Nothing     -> unpack . filename' <$> file -<.> ""
+        Nothing     -> unpack . filename' <$> replaceExtension "" file
       importC' dir i newTag t file
 
 execute tool dir (New empty tag name) = do
@@ -256,7 +255,7 @@ checkRefs _ = putStrLn "NOT IMPLEMENTED" -- TODO
 
 importC' :: Dir -> ID -> Tag -> Name -> P.Path a P.File -> IO ()
 importC' dir i tag title file = do
-  let note = Note Current i tag title (Just $ fileExtension file)
+  let note = Note Current i tag title (fileExtension file)
   newfile <- noteAbsFile dir note
   copyFile file newfile
   checkinNote dir note >>= \case
