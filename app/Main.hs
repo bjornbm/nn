@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
+import Control.Applicative (liftA2, (<|>))
 import Control.Monad.Catch (catchAll)
 import Data.List (sortOn, groupBy)
 import Data.Maybe (maybeToList, fromMaybe)
@@ -115,10 +116,11 @@ execute tool dir (List path Nothing sel) = getManyNotes tool dir sel >>=
 -- Apply command specified with --exec to files matching the terms.
 execute tool dir (List _ (Just exec) sel) = do
   notes <- getManyNotes tool dir sel
-  let cmd:args = words exec
-  rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
-    ExitSuccess -> return ()
-    code        -> print code
+  case words exec of
+    cmd:args -> rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
+      ExitSuccess -> return ()
+      code        -> print code
+    [] -> error "no exec cmd supplied"
 
 execute _ dir (Tags pop) = do
   ts <- countTags <$> getAllNotes dir
@@ -211,13 +213,15 @@ execute tool dir (New empty tag name) = do
   i <- makeAvailableID tool dir
   let note = Note Current i tag (unwords name) (Just ".txt")
   exec <- if empty then return "touch"  -- TODO: use Haskell actions for file creation instead.
-                   else fromMaybe defaultEditor <$> lookupEnv "EDITOR"
-  let cmd:args = words exec
-  rawSystem cmd (args ++ [notePath dir note]) >>= \case
-    ExitSuccess -> checkinNote dir note >>= \case
-      ExitSuccess -> printFilename note
+    else fromMaybe defaultEditor <$>
+      liftA2 (<|>) (lookupEnv "VISUAL") (lookupEnv "EDITOR")
+  case words exec of
+    cmd:args -> rawSystem cmd (args ++ [notePath dir note]) >>= \case
+      ExitSuccess -> checkinNote dir note >>= \case
+        ExitSuccess -> printFilename note
+        code        -> print code
       code        -> print code
-    code        -> print code
+    [] -> error "no exec cmd supplied"
 
 
 
@@ -269,9 +273,10 @@ editNotes dir notes = do
   if null notes
     then return ()
     else do
-      let cmd:args = words exec
-      rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
-        ExitSuccess -> checkinNotes dir notes >>= \case
-            ExitSuccess -> mapM_ printFilename notes
-            code        -> print code
-        code        -> print code
+      case words exec of
+        cmd:args -> rawSystem cmd (args ++ map (notePath dir) notes) >>= \case
+          ExitSuccess -> checkinNotes dir notes >>= \case
+              ExitSuccess -> mapM_ printFilename notes
+              code        -> print code
+          code        -> print code
+        [] -> error "no exec cmd supplied"
