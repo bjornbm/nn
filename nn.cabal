@@ -1,5 +1,5 @@
 name:                nn
-version:             0.7.0.0
+version:             0.8.0.0
 synopsis:            Command line tool for note taking inspired by Notational Velocity or nvALT.
 description:         Please see README.md
 homepage:            http://github.com/bjornbm/nn#readme
@@ -7,7 +7,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Bjorn Buckwalter
 maintainer:          bjorn@buckwalter.se
-copyright:           Copyright: (c) 2012-2016 Bjorn Buckwalter
+copyright:           Copyright: (c) 2012-2023 Bjorn Buckwalter
 category:            Text
 build-type:          Simple
 -- extra-source-files:
