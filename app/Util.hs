@@ -82,7 +82,6 @@ findFind tool dir s = fmap (sortOn filename) . mapM parseAbsFile . massage
                   -- `ack` and `ag` exit with 1 if they find no files so we
                   -- cannot use `readProcess` here.
   where
-    snd3 (_, x, _) = x  -- From Neil Mitchell's "extra" package.
     massage = map unpack
             . init . splitOn "\0"  -- Null-terminated filenames.
             . pack
@@ -398,3 +397,9 @@ safe :: ([a] -> b) -> [a] -> Maybe b
 safe _ [] = Nothing
 safe f xs = Just $ f xs
 
+-- | Take the second element of a triple
+--
+-- >>> snd3 (1, 2, 3)
+-- 2
+snd3 :: (a, b, c) -> b
+snd3 (_, x, _) = x  -- From Neil Mitchell's "extra" package.
