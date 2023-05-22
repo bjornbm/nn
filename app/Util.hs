@@ -67,7 +67,7 @@ searchOptions Find dir s =
 mdfind :: Dir -> [String] -> IO [File]
 mdfind dir args = fmap (sortOn filename) . mapM parseAbsFile . massage
   -- TODO sort [Note] instead of file paths?
-  =<< readProcess "mdfind" (stdArgs dir ++ args) ""
+  =<< snd3 <$> readProcessWithExitCode "mdfind" (stdArgs dir ++ args) ""
   where
     stdArgs dir' = [ "-onlyin", P.fromAbsDir dir' , "-0" ]
     massage = map unpack
