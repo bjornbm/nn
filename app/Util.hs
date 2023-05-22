@@ -213,8 +213,8 @@ obsP  = maybe Current (const Obsoleted) <$> optional (char '+')
 -- >>> parseTest idP $ pack "2019_02_03_1345"
 -- ID 2019-02-03 13:45:00
 --
--- >>> parseTest idP $ pack "2019_02_03_1360"
--- ID 2019-02-03 13:60:00
+-- >>> parseTest idP $ pack "2019_02_03_1359"
+-- ID 2019-02-03 13:59:00
 idP :: Parser ID
 idP = let sep = char '_' in do
   yyyy <-        count 4 digitChar
