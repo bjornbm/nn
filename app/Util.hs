@@ -272,19 +272,19 @@ extP = optional $ ("." <>) <$> (char '.' *> many alphaNumChar)
   -- TODO: Separate extension from title.
   --
   -- >>> parseTest noteParser (pack "+2019_03_18_1009-note-The title.md")
-  -- Note {status = Obsoleted, nid = ID 2019-03-18 10:09:00, tag = "note", name = "The title", ext = Just ".md"}
+  -- Note {noteStatus = Obsoleted, noteID = ID 2019-03-18 10:09:00, noteTag = "note", noteName = "The title", noteExt = Just ".md"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title.txt")
-  -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "The title", ext = Just ".txt"}
+  -- Note {noteStatus = Current, noteID = ID 2019-03-18 10:09:00, noteTag = "note", noteName = "The title", noteExt = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt")
-  -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
+  -- Note {noteStatus = Current, noteID = ID 2019-03-18 10:09:00, noteTag = "note", noteName = "www.klintenas.se", noteExt = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-www.klintenas.se.txt~")
-   -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "www.klintenas.se", ext = Just ".txt"}
+   -- Note {noteStatus = Current, noteID = ID 2019-03-18 10:09:00, noteTag = "note", noteName = "www.klintenas.se", noteExt = Just ".txt"}
   --
   -- >>> parseTest noteParser (pack "2019_03_18_1009-note-The title")
-  -- Note {status = Current, nid = ID 2019-03-18 10:09:00, tag = "note", name = "The title", ext = Nothing}
+  -- Note {noteStatus = Current, noteID = ID 2019-03-18 10:09:00, noteTag = "note", noteName = "The title", noteExt = Nothing}
 noteParser :: Parser Note
 noteParser = Note <$> obsP <*> idP <*> tagP <*> titleP <*> extP <* endP
 
